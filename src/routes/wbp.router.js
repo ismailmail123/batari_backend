@@ -1,8 +1,12 @@
 const express = require("express");
+
+const { storage } = require("../storage/storage.js");
+const multer = require("multer");
+
+const upload = multer({ storage: storage });
 const router = express.Router();
-const { upload } = require("../config/multer.js");
 const { validateToken } = require("../middlewares/auth");
-const { uploadExcel } = require("../config/multer.js");
+const { uploadExcel } = require("../storage/storage.js");
 const { index, indexList, show, create, update, createFromExcel, remove } = require("../controllers/wbp.controller.js");
 
 // /api/wbp

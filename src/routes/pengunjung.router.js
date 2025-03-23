@@ -2,7 +2,11 @@ const express = require("express");
 
 const router = express.Router();
 
-const { upload } = require("../config/multer.js");
+const { storage } = require("../storage/storage.js");
+const multer = require("multer");
+
+const upload = multer({ storage: storage });
+
 
 
 const { index, indexUser, show, create, update, verifyCode, updateAntrian, getLastAntrian } = require("../controllers/pengunjung.controller.js");

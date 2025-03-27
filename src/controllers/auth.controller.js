@@ -41,11 +41,14 @@ const register = async(req, res, next) => {
         tanggal_lahir,
     } = req.body;
 
-    if (!req.file) {
-        return res.status(400).send({ message: "Gambar tidak ditemukan, pastikan gambar diunggah dengan benar" });
+    // if (!req.file) {
+    //     return res.status(400).send({ message: "Gambar tidak ditemukan, pastikan gambar diunggah dengan benar" });
+    // }
+    // Buat photo menjadi opsional
+    let image = null;
+    if (req.file) {
+        image = req.file.path; // Cloudinary URL
     }
-
-    const image = req.file.path; // Cloudinary URL
 
     console.log("image", image)
 
@@ -479,37 +482,12 @@ const checkAuth = (req, res) => {
 
 const logoutUser = async(req, res) => {
     try {
-        // Mengambil ID pengguna dari cookie
-        const userId = req.cookies.jwt ? decodeJwt(req.cookies.jwt).id : null;
-
-        console.log("userId", userId);
-
-        // if (!userId) {
-        //     return res.status(400).json({ message: "User not authenticated" });
-        // }
-
-        // Mengubah status user menjadi 'offline' (jika diperlukan)
+        // Jika Anda ingin menambahkan logika tambahan, seperti menandai pengguna sebagai "offline" di database:
+        // const userId = req.user.id; // Ambil ID pengguna dari token (jika menggunakan middleware auth)
         // await UserModel.update({ status: 'offline' }, { where: { id: userId } });
 
-        // Menghapus cookie JWT
-        res.clearCookie("jwt", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV !== 'development', // Pastikan `secure: true` di produksi
-            sameSite: 'strict',
-            path: '/', // Pastikan path sama dengan saat cookie dibuat
-            domain: 'localhost', // Sesuaikan dengan domain Anda
-        });
-
-        // Menghapus cookie user_data (jika ada)
-        res.clearCookie("user_data", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV !== 'development',
-            sameSite: 'strict',
-            path: '/',
-            domain: 'localhost',
-        });
-
-        return res.status(200).json({ message: "Successfully logged out and user is offline." });
+        // Kirim respons berhasil logout
+        return res.status(200).json({ message: "Successfully logged out." });
     } catch (err) {
         console.error("Error during logout:", err); // Untuk mempermudah debugging
         return res.status(500).json({ message: "Internal Server Error" });

@@ -15,7 +15,7 @@ jobs:
         with:
           host: '34.42.206.50'
           username: 'root'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY}}
           port: 22
           script: |
             git config --global --add safe.directory /home/hp/batari_backend

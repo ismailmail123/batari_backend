@@ -15,7 +15,7 @@ jobs:
         with:
           host: '72.60.76.188'
           username: 'root'
-          key: ${{secrets.BATARI_SSH_PRIVATE_KEY}}
+          key: ${{ secrets.BATARI_SSH_PRIVATE_KEY }}
           port: 22
           script: |
             git config --global --add safe.directory /home/hp/batari_backend
@@ -36,3 +36,4 @@ jobs:
             git pull origin main
             pm2 delete batari_backend
             pm2 start server.js -n batari_backend
+            #pm2 start server.js -n batari_backend

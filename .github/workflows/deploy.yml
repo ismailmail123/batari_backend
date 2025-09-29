@@ -1,4 +1,4 @@
-name: batari_backend
+name: batari-backend
 
 on:
   push:
@@ -18,22 +18,19 @@ jobs:
           key: ${{ secrets.BATARI_SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            git config --global --add safe.directory /home/hp/batari_backend
+            git config --global --add safe.directory /batari_api
             
             curl -sL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             apt install -y nodejs
-
             npm install -g npm@latest
-
+            # Ensure pm2 is installed
             # Ensure pm2 is installed
             npm install -g pm2
-
             # Change to the project directory and execute the build script
-            cd /batari/batari_backend/src
+            cd batari/batari_backend/src
             #chmod +x ./build.sh
             #chmod +x ./build.sh
             #./build.sh
             git pull origin main
-            pm2 delete batari_backend
+            pm2 delete batari/batari_backend
             pm2 start server.js -n batari_backend
-            #pm2 start server.js -n batari_backend

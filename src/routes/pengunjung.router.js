@@ -9,12 +9,15 @@ const upload = multer({ storage: storage });
 
 
 
-const { index, indexUser, show, create, update, verifyCode, updateAntrian, getLastAntrian } = require("../controllers/pengunjung.controller.js");
+const { index, indexUser, show, create, update, verifyCode, updateAntrian, getLastAntrian, listStruk, cetakLabelTitipan } = require("../controllers/pengunjung.controller.js");
 const { validateToken } = require("../middlewares/auth.js")
 
 // /api/babs
 router.get("/", validateToken, index);
+router.get("/", validateToken, index);
+router.get("/struk", listStruk);
 router.get("/user", validateToken, indexUser);
+router.post("/cetak-label", cetakLabelTitipan);
 router.get("/antrian-terakhir", validateToken, getLastAntrian);
 router.get("/:kode", validateToken, show);
 router.put("/update-antrian", validateToken, updateAntrian);

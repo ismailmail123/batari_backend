@@ -33,6 +33,9 @@ module.exports = {
             hubungan_keluarga: {
                 type: Sequelize.STRING
             },
+            tujuan: {
+                type: Sequelize.STRING
+            },
             pengikut_laki_laki: {
                 type: Sequelize.INTEGER
             },

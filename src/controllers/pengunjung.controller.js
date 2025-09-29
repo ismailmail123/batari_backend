@@ -4,9 +4,11 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const cloudinary = require('../config/cloudinary'); // Import modul Cloudinary
-const { user: UserModel, warga_binaan: WbpModel, pengunjung: PengunjungModel, barang_titipan: BarangTitipanModel } = require("../models");
+const { user: UserModel, warga_binaan: WbpModel, pengunjung: PengunjungModel, barang_titipan: BarangTitipanModel, sequelize } = require("../models");
 const { Op, Sequelize } = require("sequelize");
 const nodemailer = require("nodemailer");
+const PDFDocument = require("pdfkit");
+const { printer: ThermalPrinter, types: PrinterTypes } = require("node-thermal-printer");
 
 const generateVerificationCode = () => crypto.randomBytes(3).toString("hex").toUpperCase(); // 6 karakter kode acak
 
@@ -106,40 +108,148 @@ const indexUser = async(req, res, _next) => {
  * @param {import("express").Request} req
  * @param {import("express").Response} res
  */
+// const getLastAntrian = async(req, res) => {
+//     try {
+//         // Cari pengunjung dengan antrian terakhir (berdasarkan created_at)
+//         const lastPengunjung = await PengunjungModel.findOne({
+//             where: {
+//                 antrian: {
+//                     [Op.not]: null, // Hanya ambil data yang antrian-nya tidak null
+//                     [Op.like]: '%-%' // Hanya ambil data yang mengandung tanda '-'
+//                 }
+//             },
+//             order: [
+//                 ['created_at', 'DESC']
+//             ], // Urutkan berdasarkan created_at descending
+//             attributes: ['antrian'], // Ambil hanya kolom antrian
+//         });
+
+//         console.log("Lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllast Pengunjung:", lastPengunjung);
+
+//         let lastNumber = 0;
+
+//         // Jika ada data pengunjung dengan antrian, ekstrak nomor terakhir
+//         if (lastPengunjung && lastPengunjung.antrian) {
+//             const lastAntrian = lastPengunjung.antrian;
+
+//             // Pastikan lastAntrian adalah string dan memiliki format yang benar
+//             if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
+//                 const lastNumberStr = lastAntrian.split('-')[1]; // Ambil bagian nomor setelah tanggal
+//                 lastNumber = parseInt(lastNumberStr, 10); // Konversi ke integer
+//             } else {
+//                 console.warn('Format antrian tidak valid:', lastAntrian);
+//             }
+//         }
+
+//         return res.status(200).json({
+//             message: "Success",
+//             lastNumber: lastNumber,
+//         });
+//     } catch (error) {
+//         console.error("Error fetching last antrian:", error);
+//         return res.status(500).json({
+//             message: "Internal Server Error",
+//         });
+//     }
+// };
+// const getLastAntrian = async(req, res) => {
+//     try {
+//         // Dapatkan tanggal hari ini dalam format YYYYMMDD
+//         const today = new Date();
+//         const todayString = today.getFullYear() +
+//             String(today.getMonth() + 1).padStart(2, '0') +
+//             String(today.getDate()).padStart(2, '0');
+
+//         console.log("Tanggal hari ini:", todayString);
+
+//         // Cari semua antrian untuk tanggal hari ini
+//         const antrianHariIni = await PengunjungModel.findAll({
+//             where: {
+//                 antrian: {
+//                     [Op.like]: `${todayString}-%` // Hanya ambil yang dimulai dengan tanggal hari ini
+//                 }
+//             },
+//             attributes: ['antrian'],
+//         });
+
+//         console.log("Antrian hari ini:", antrianHariIni.map(a => a.antrian));
+
+//         let lastNumber = 0;
+
+//         // Ekstrak nomor-nomor dan cari yang terbesar
+//         if (antrianHariIni.length > 0) {
+//             const numbers = antrianHariIni.map(pengunjung => {
+//                 const antrian = pengunjung.antrian;
+//                 if (typeof antrian === 'string' && antrian.includes('-')) {
+//                     const numberStr = antrian.split('-')[1];
+//                     return parseInt(numberStr, 10);
+//                 }
+//                 return 0;
+//             }).filter(num => !isNaN(num));
+
+//             // Cari nomor terbesar
+//             lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
+//         }
+
+//         return res.status(200).json({
+//             message: "Success",
+//             lastNumber: lastNumber,
+//             tanggal: todayString
+//         });
+//     } catch (error) {
+//         console.error("Error fetching last antrian:", error);
+//         return res.status(500).json({
+//             message: "Internal Server Error",
+//         });
+//     }
+// };
 const getLastAntrian = async(req, res) => {
     try {
-        // Cari pengunjung dengan antrian terakhir (berdasarkan created_at)
-        const lastPengunjung = await PengunjungModel.findOne({
+        // Dapatkan tanggal hari ini dalam format YYYYMMDD
+        const today = new Date();
+        const todayString = today.getFullYear() +
+            String(today.getMonth() + 1).padStart(2, '0') +
+            String(today.getDate()).padStart(2, '0');
+
+        console.log("Tanggal hari ini:", todayString);
+
+        // Cari semua antrian untuk tanggal hari ini
+        const antrianHariIni = await PengunjungModel.findAll({
             where: {
                 antrian: {
-                    [Op.not]: null, // Hanya ambil data yang antrian-nya tidak null
-                    [Op.like]: '%-%' // Hanya ambil data yang mengandung tanda '-'
+                    [Op.like]: `${todayString}-%` // Hanya ambil yang dimulai dengan tanggal hari ini
                 }
             },
-            order: [
-                ['created_at', 'DESC']
-            ], // Urutkan berdasarkan created_at descending
-            attributes: ['antrian'], // Ambil hanya kolom antrian
+            attributes: ['antrian'],
         });
 
-        let lastNumber = 0;
+        console.log("Antrian hari ini:", antrianHariIni.map(a => a.antrian));
 
-        // Jika ada data pengunjung dengan antrian, ekstrak nomor terakhir
-        if (lastPengunjung && lastPengunjung.antrian) {
-            const lastAntrian = lastPengunjung.antrian;
+        let lastNumber = "000"; // Default "000" jika tidak ada antrian
 
-            // Pastikan lastAntrian adalah string dan memiliki format yang benar
-            if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
-                const lastNumberStr = lastAntrian.split('-')[1]; // Ambil bagian nomor setelah tanggal
-                lastNumber = parseInt(lastNumberStr, 10); // Konversi ke integer
-            } else {
-                console.warn('Format antrian tidak valid:', lastAntrian);
+        // Ekstrak tiga angka terakhir dari nomor antrian
+        if (antrianHariIni.length > 0) {
+            const numbers = antrianHariIni.map(pengunjung => {
+                const antrian = pengunjung.antrian;
+                if (typeof antrian === 'string' && antrian.includes('-')) {
+                    // Ambil bagian setelah tanda '-' (tiga angka terakhir)
+                    return antrian.split('-')[1];
+                }
+                return "000";
+            }).filter(num => num !== "000"); // Hapus nilai default dari array
+
+            // Cari nomor terbesar dari tiga angka terakhir
+            if (numbers.length > 0) {
+                lastNumber = numbers.reduce((max, current) => {
+                    return current > max ? current : max;
+                });
             }
         }
 
         return res.status(200).json({
             message: "Success",
-            lastNumber: lastNumber,
+            lastNumber: lastNumber, // Format: "016", "017", dst.
+            tanggal: todayString
         });
     } catch (error) {
         console.error("Error fetching last antrian:", error);
@@ -148,7 +258,6 @@ const getLastAntrian = async(req, res) => {
         });
     }
 };
-
 /**
  * @param {import("express").Request} req
  * @param {import("express").Response} res
@@ -228,6 +337,7 @@ const show = async(req, res, next) => {
                 "alamat",
                 "hp",
                 "hubungan_keluarga",
+                "tujuan",
                 "pengikut_laki_laki",
                 "pengikut_perempuan",
                 "pengikut_anak_anak",
@@ -374,6 +484,7 @@ const create = async(req, res, _next) => {
             alamat,
             hp,
             hubungan_keluarga,
+            tujuan,
             pengikut_laki_laki,
             pengikut_perempuan,
             pengikut_anak_anak,
@@ -432,6 +543,7 @@ const create = async(req, res, _next) => {
             alamat,
             hp,
             hubungan_keluarga,
+            tujuan,
             pengikut_laki_laki,
             pengikut_perempuan,
             pengikut_anak_anak,
@@ -580,6 +692,7 @@ const update = async(req, res, _next) => {
             alamat,
             hp,
             hubungan_keluarga,
+            tujuan,
             pengikut_laki_laki,
             pengikut_perempuan,
             pengikut_anak_anak,
@@ -610,6 +723,7 @@ const update = async(req, res, _next) => {
             alamat,
             hp,
             hubungan_keluarga,
+            tujuan,
             pengikut_laki_laki,
             pengikut_perempuan,
             pengikut_anak_anak,
@@ -651,34 +765,38 @@ const update = async(req, res, _next) => {
     }
 };
 
+
 const updateAntrian = async(req, res) => {
+    const transaction = await sequelize.transaction();
+
     try {
         const { kode } = req.body;
 
-        // Validasi input
         if (!kode) {
+            await transaction.rollback();
             return res.status(400).send({
                 message: "Kode harus disertakan dalam request body",
                 data: null,
             });
         }
 
-        // Cari pengunjung berdasarkan kode
-        const pengunjung = await PengunjungModel.findOne({ where: { kode } });
+        const pengunjung = await PengunjungModel.findOne({
+            where: { kode },
+            transaction
+        });
 
-        // Jika pengunjung tidak ditemukan
         if (!pengunjung) {
+            await transaction.rollback();
             return res.status(404).send({
                 message: "Pengunjung tidak ditemukan",
                 data: null,
             });
         }
 
-        // Generate nomor antrian baru
         const today = new Date();
         const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
 
-        // Cari nomor antrian terakhir untuk hari ini
+        // Cari nomor antrian terbesar dengan lock untuk menghindari race condition
         const lastPengunjung = await PengunjungModel.findOne({
             where: {
                 antrian: {
@@ -686,9 +804,11 @@ const updateAntrian = async(req, res) => {
                 },
             },
             order: [
-                ['created_at', 'DESC']
+                ['antrian', 'DESC']
             ],
             attributes: ['antrian'],
+            lock: transaction.LOCK.UPDATE,
+            transaction
         });
 
         let lastNumber = 0;
@@ -700,12 +820,11 @@ const updateAntrian = async(req, res) => {
             }
         }
 
-        // Generate nomor antrian baru
         const newAntrianNumber = lastNumber + 1;
         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
 
-        // Update antrian pengunjung
-        await pengunjung.update({ antrian: newAntrian });
+        await pengunjung.update({ antrian: newAntrian }, { transaction });
+        await transaction.commit();
 
         return res.send({
             message: "Antrian berhasil diupdate",
@@ -715,182 +834,156 @@ const updateAntrian = async(req, res) => {
             },
         });
     } catch (error) {
+        await transaction.rollback();
         console.error("Error:", error.message);
         return res.status(500).send({ message: "Internal Server Error" });
     }
 };
 
-// const updateAntrian = async(req, res, _next) => {
-//     try {
-//         const { kode, antrian } = req.body; // Ambil id dan antrian dari body
 
-//         console.log("Request body:", req.body); // Debug: Cetak request body
-//         console.log("Current user:", req.user.id); // Debug: Cetak ID user yang sedang login
 
-//         // Validasi input
-//         if (!kode || !antrian) {
-//             return res.status(400).send({
-//                 message: "ID dan antrian harus disertakan dalam request body",
-//                 data: null,
-//             });
-//         }
+const listStruk = async(req, res) => {
+    try {
+        // path folder root project
+        const folderPath = path.join(process.cwd(), "./"); // ⬅️ ini pasti ke root (sejajar package.json)
 
-//         // Cari pengunjung berdasarkan ID
-//         const pengunjung = await PengunjungModel.findOne({ where: { kode } });
-//         console.log("Hasil query:", pengunjung); // Debug: Cetak hasil query
+        // ambil semua file PDF di root
+        const files = fs.readdirSync(folderPath)
+            .filter(file => file.endsWith(".pdf"));
 
-//         // Jika pengunjung tidak ditemukan
-//         if (!pengunjung) {
-//             return res.status(404).send({
-//                 message: "Pengunjung tidak ditemukan",
-//                 data: null,
-//             });
-//         }
+        if (files.length === 0) {
+            return res.status(404).send({
+                message: "Belum ada file struk yang digenerate",
+                data: [],
+            });
+        }
 
-//         // Update antrian
-//         await pengunjung.update({ antrian });
+        // bikin URL supaya bisa diakses lewat browser
+        const fileUrls = files.map(file => ({
+            name: file,
+            url: `${req.protocol}://${req.get("host")}/struks/${file}`
+        }));
 
-//         return res.send({
-//             message: "Antrian berhasil diupdate",
-//             data: pengunjung,
-//         });
-//     } catch (error) {
-//         console.error("Error:", error.message);
-//         return res.status(500).send({ message: "Internal Server Error" });
-//     }
-// };
-
-// const updateAntrian = async(req, res, _next) => {
-//     try {
-//         const { kode } = req.body; // Ambil kode dari body
-
-//         console.log("Request body:", req.body); // Debug: Cetak request body
-//         console.log("Current user:", req.user.id); // Debug: Cetak ID user yang sedang login
-
-//         // Validasi input
-//         if (!kode) {
-//             return res.status(400).send({
-//                 message: "Kode harus disertakan dalam request body",
-//                 data: null,
-//             });
-//         }
-
-//         // Cari pengunjung berdasarkan kode
-//         const pengunjung = await PengunjungModel.findOne({ where: { kode } });
-//         console.log("Hasil query:", pengunjung); // Debug: Cetak hasil query
-
-//         // Jika pengunjung tidak ditemukan
-//         if (!pengunjung) {
-//             return res.status(404).send({
-//                 message: "Pengunjung tidak ditemukan",
-//                 data: null,
-//             });
-//         }
-
-//         // Generate nomor antrian baru
-//         const today = new Date();
-//         const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-
-//         // Cari nomor antrian terakhir untuk hari ini
-//         const lastPengunjung = await PengunjungModel.findOne({
-//             where: {
-//                 antrian: {
-//                     [Sequelize.Op.like]: `${dateString}-%` // Cari antrian dengan format YYYYMMDD-NNN
-//                 }
-//             },
-//             order: [
-//                 ['created_at', 'DESC']
-//             ], // Urutkan berdasarkan created_at descending
-//             attributes: ['antrian'], // Ambil hanya kolom antrian
-//         });
-
-//         let lastNumber = 0;
-
-//         // Jika ada data pengunjung dengan antrian, ekstrak nomor terakhir
-//         if (lastPengunjung && lastPengunjung.antrian) {
-//             const lastAntrian = lastPengunjung.antrian;
-
-//             // Pastikan lastAntrian adalah string dan memiliki format yang benar
-//             if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
-//                 const lastNumberStr = lastAntrian.split('-')[1]; // Ambil bagian nomor setelah tanggal
-//                 lastNumber = parseInt(lastNumberStr, 10); // Konversi ke integer
-//             } else {
-//                 console.warn('Format antrian tidak valid:', lastAntrian);
-//             }
-//         }
-
-//         // Generate nomor antrian baru
-//         const newAntrianNumber = lastNumber + 1;
-//         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
-
-//         // Update antrian pengunjung
-//         await pengunjung.update({ antrian: newAntrian });
-
-//         return res.send({
-//             message: "Antrian berhasil diupdate",
-//             data: {
-//                 ...pengunjung.toJSON(),
-//                 antrian: newAntrian, // Sertakan nomor antrian baru di response
-//             },
-//         });
-//     } catch (error) {
-//         console.error("Error:", error.message);
-//         return res.status(500).send({ message: "Internal Server Error" });
-//     }
-// };
+        return res.send({
+            message: "Daftar struk berhasil diambil",
+            data: fileUrls,
+        });
+    } catch (error) {
+        console.error("Error listStruk:", error.message);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
 
 
 
-// const verifyCode = async(req, res, next) => {
-//     const { id } = req.body;
-//     const currentUser = req.user;
+// controllers/pengunjung.controller.js - VERSI SIMPLE
+const cetakLabelTitipan = async(req, res) => {
+    try {
+        const { kode } = req.body;
 
-//     try {
-//         const pengunjung = await PengunjungModel.findOne({ where: { id } });
+        if (!kode) {
+            return res.status(400).send({
+                success: false,
+                message: "Kode harus disertakan",
+            });
+        }
 
-//         console.log("current user", currentUser);
+        const pengunjung = await PengunjungModel.findOne({
+            where: { kode },
+            include: [
+                { model: WbpModel, as: "warga_binaan" },
+                { model: BarangTitipanModel, as: "barang_titipan" },
+            ],
+        });
 
-//         if (!pengunjung) {
-//             return res.status(404).json({ message: "Pengunjung not found" });
-//         }
+        if (!pengunjung) {
+            return res.status(404).send({
+                success: false,
+                message: "Pengunjung tidak ditemukan",
+            });
+        }
 
-//         // Jika status sudah divalidasi oleh P2U, kembalikan pesan error
-//         if (pengunjung.status === 'Valid, Divalidasi Oleh P2U') {
-//             return res.status(400).json({ message: "Kode sudah diverifikasi oleh P2U" });
-//         }
+        const titipan = pengunjung.barang_titipan || {};
+        const namaWbp = "-";
 
-//         // Jika role user adalah admin, ubah status menjadi 'Valid Divalidasi oleh Petugas Kunjungan'
-//         if (currentUser.role === 'admin') {
-//             pengunjung.status = 'Valid Divalidasi oleh Petugas Kunjungan';
-//             await pengunjung.save();
-//         }
+        // METHOD PALING SIMPLE - Copy command saja
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const { exec } = require('child_process');
 
+            // Buat content
+            const content = [
+                "LABEL TITIPAN",
+                "RUTAN BANTAENG",
+                "",
+                `KODE        : ${pengunjung.kode}`,
+                `NAMA WBP    : ${namaWbp}`,
+                `PENGIRIM    : ${pengunjung.nama || "-"}`,
+                `ALAMAT      : ${pengunjung.alamat || "-"}`,
+                `JENIS BARANG: ${titipan.jenis || "-"}`,
+                `JUMLAH      : ${titipan.jumlah || "-"}`,
+                "",
+                "~ TERIMA KASIH ~",
+                `Tgl: ${new Date().toLocaleDateString('id-ID')}`,
+                ""
+            ].join('\r\n');
 
-//         // Jika role user adalah p2u, cek apakah status sudah divalidasi oleh admin
-//         if (currentUser.role === 'p2u') {
-//             if (pengunjung.status !== 'Valid Divalidasi oleh Petugas Kunjungan') {
-//                 return res.status(400).json({ message: "Kode belum diverifikasi oleh petugas kunjungan" });
-//             }
+            // Simpan file
+            const tempFile = path.join(__dirname, '../temp', `print_${Date.now()}.txt`);
+            const tempDir = path.dirname(tempFile);
 
-//             // Ubah status menjadi 'Valid, Divalidasi Oleh P2U'
-//             pengunjung.status = 'Valid, Divalidasi Oleh P2U';
-//             await pengunjung.save();
-//         }
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir, { recursive: true });
+            }
 
-//         // Jika role user bukan admin atau p2u, kembalikan pesan unauthorized
-//         if (currentUser.role !== 'admin' && currentUser.role !== 'p2u') {
-//             return res.status(403).json({ message: "Unauthorized atau anda tidak memiliki izin" });
-//         }
+            fs.writeFileSync(tempFile, content, 'utf8');
 
-//         return res.send({
-//             message: "Kode berhasil diverifikasi",
-//             data: null,
-//         });
-//     } catch (err) {
-//         console.log("Error : ", err.message);
-//         res.status(500).json({ message: "Internal Server Error" });
-//     }
-// };
+            // Print menggunakan COPY command (paling reliable)
+            const command = `copy "${tempFile}" "\\\\localhost\\EPPOS EP 200"`;
+
+            exec(command, (error, stdout, stderr) => {
+                // Cleanup regardless of result
+                try {
+                    if (fs.existsSync(tempFile)) {
+                        fs.unlinkSync(tempFile);
+                    }
+                } catch (e) {
+                    console.log("Cleanup error:", e.message);
+                }
+
+                if (error) {
+                    console.error("Print error:", error);
+                    res.status(500).send({
+                        success: false,
+                        message: `Gagal mencetak: ${error.message}`,
+                        error: "Pastikan printer 'EPPOS EP 200' terinstall dan ready"
+                    });
+                } else {
+                    console.log("Print success:", stdout);
+                    res.send({
+                        success: true,
+                        message: "✅ Label titipan berhasil dicetak",
+                        data: pengunjung
+                    });
+                }
+            });
+
+        } catch (error) {
+            res.status(500).send({
+                success: false,
+                message: "Error sistem: " + error.message
+            });
+        }
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).send({
+            success: false,
+            message: "Internal Server Error"
+        });
+    }
+};
 const verifyCode = async(req, res, next) => {
     const { id } = req.body;
     const currentUser = req.user;
@@ -959,5 +1052,7 @@ module.exports = {
     update,
     verifyCode,
     updateAntrian,
-    getLastAntrian
+    getLastAntrian,
+    listStruk,
+    cetakLabelTitipan
 };

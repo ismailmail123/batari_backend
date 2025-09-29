@@ -35,6 +35,7 @@ module.exports = (sequelize, DataTypes) => {
         alamat: DataTypes.STRING,
         hp: DataTypes.STRING,
         hubungan_keluarga: DataTypes.STRING,
+        tujuan: DataTypes.STRING,
         pengikut_laki_laki: DataTypes.INTEGER,
         pengikut_perempuan: DataTypes.INTEGER,
         pengikut_anak_anak: DataTypes.INTEGER,

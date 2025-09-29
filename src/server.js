@@ -139,6 +139,7 @@
 require('dotenv').config()
 
 const express = require("express");
+const path = require("path");
 
 const app = express();
 
@@ -159,6 +160,8 @@ if (!process.env.JWT_SECRET) {
 }
 
 app.use(cors());
+
+app.use("/struks", express.static(path.join(process.cwd(), "./")));;
 
 
 app.use("/api/auth", authRouter);

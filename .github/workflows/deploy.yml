@@ -18,7 +18,7 @@ jobs:
           key: ${{ secrets.BATARI_SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            git config --global --add safe.directory /batari_api
+            git config --global --add safe.directory /batari/batari_backend
             
             curl -sL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             apt install -y nodejs

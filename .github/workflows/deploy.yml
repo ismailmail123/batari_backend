@@ -34,4 +34,3 @@ jobs:
             git pull origin main
             pm2 delete batari_backend
             pm2 start server.js -n batari_backend
-            #pm2 start server.js -n batari_backend

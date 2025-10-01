@@ -35,42 +35,39 @@
 #             pm2 delete batari_backend
 #             pm2 start server.js -n batari_backend
 
-name: debug-deploy
+name: force-clean-deploy
 on:
   push:
     branches: ['main']
 
 jobs:
-  debug:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug Server Status
+      - name: Force Clean Deploy
         uses: appleboy/ssh-action@master
         with:
           host: '72.60.76.188'
           username: 'root'
           key: ${{ secrets.BATARI_SSH_PRIVATE_KEY }}
           script: |
-            echo "=== Current Directory ==="
-            pwd
-            ls -la
-            
-            echo "=== Project Structure ==="
             cd /root/batari/batari_backend
-            pwd
-            ls -la
             
-            echo "=== Git Status ==="
-            git status
-            git log --oneline -5
+            echo "=== Reset Everything ==="
+            git fetch origin
+            git reset --hard origin/main
             
-            echo "=== PM2 Status ==="
-            pm2 status
-            pm2 show batari_backend || echo "PM2 app not found"
+            echo "=== Clean Install ==="
+            rm -rf node_modules
+            npm install
             
-            echo "=== Node Processes ==="
-            ps aux | grep node
+            echo "=== Restart Application ==="
+            pm2 delete batari_backend || true
+            cd src
+            pm2 start server.js --name batari_backend
             
-            echo "=== Check server.js ==="
-            ls -la server.js
-            cat server.js | head -10
+            echo "=== Save PM2 ==="
+            pm2 save
+            
+            echo "✅ Deployment completed!"
+            echo "📝 Latest commit: $(git log --oneline -1)"

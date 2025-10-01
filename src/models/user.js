@@ -30,6 +30,7 @@ module.exports = (sequelize, DataTypes) => {
         email: DataTypes.STRING,
         password: DataTypes.STRING,
         role: DataTypes.ENUM("admin", "user", "p2u"),
+        provider: DataTypes.ENUM("local", "google"),
         alamat: DataTypes.TEXT,
         photo: DataTypes.TEXT,
         hp: DataTypes.STRING,

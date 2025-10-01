@@ -22,6 +22,10 @@ module.exports = {
                 type: Sequelize.ENUM("admin", "user", "p2u"),
                 defaultValue: "user"
             },
+            provider: {
+                type: Sequelize.ENUM("local", "google"),
+                defaultValue: "local"
+            },
             alamat: {
                 type: Sequelize.TEXT
             },

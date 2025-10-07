@@ -766,6 +766,80 @@ const update = async(req, res, _next) => {
 };
 
 
+// const updateAntrian = async(req, res) => {
+//     const transaction = await sequelize.transaction();
+
+//     try {
+//         const { kode } = req.body;
+
+//         if (!kode) {
+//             await transaction.rollback();
+//             return res.status(400).send({
+//                 message: "Kode harus disertakan dalam request body",
+//                 data: null,
+//             });
+//         }
+
+//         const pengunjung = await PengunjungModel.findOne({
+//             where: { kode },
+//             transaction
+//         });
+
+//         if (!pengunjung) {
+//             await transaction.rollback();
+//             return res.status(404).send({
+//                 message: "Pengunjung tidak ditemukan",
+//                 data: null,
+//             });
+//         }
+
+//         const today = new Date();
+//         const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+
+//         // Cari nomor antrian terbesar dengan lock untuk menghindari race condition
+//         const lastPengunjung = await PengunjungModel.findOne({
+//             where: {
+//                 antrian: {
+//                     [Sequelize.Op.like]: `${dateString}-%`,
+//                 },
+//             },
+//             order: [
+//                 ['antrian', 'DESC']
+//             ],
+//             attributes: ['antrian'],
+//             lock: transaction.LOCK.UPDATE,
+//             transaction
+//         });
+
+//         let lastNumber = 0;
+//         if (lastPengunjung && lastPengunjung.antrian) {
+//             const lastAntrian = lastPengunjung.antrian;
+//             if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
+//                 const lastNumberStr = lastAntrian.split('-')[1];
+//                 lastNumber = parseInt(lastNumberStr, 10);
+//             }
+//         }
+
+//         const newAntrianNumber = lastNumber + 1;
+//         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
+
+//         await pengunjung.update({ antrian: newAntrian }, { transaction });
+//         await transaction.commit();
+
+//         return res.send({
+//             message: "Antrian berhasil diupdate",
+//             data: {
+//                 ...pengunjung.toJSON(),
+//                 antrian: newAntrian,
+//             },
+//         });
+//     } catch (error) {
+//         await transaction.rollback();
+//         console.error("Error:", error.message);
+//         return res.status(500).send({ message: "Internal Server Error" });
+//     }
+// };
+
 const updateAntrian = async(req, res) => {
     const transaction = await sequelize.transaction();
 
@@ -796,12 +870,25 @@ const updateAntrian = async(req, res) => {
         const today = new Date();
         const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
 
-        // Cari nomor antrian terbesar dengan lock untuk menghindari race condition
+        // Cari nomor antrian terbesar HARI INI dengan lock untuk menghindari race condition
         const lastPengunjung = await PengunjungModel.findOne({
             where: {
                 antrian: {
                     [Sequelize.Op.like]: `${dateString}-%`,
                 },
+                // Tambahan: Filter berdasarkan tanggal created_at atau updated_at
+                // untuk memastikan hanya mengambil data hari ini
+                [Sequelize.Op.or]: [{
+                        createdAt: {
+                            [Sequelize.Op.gte]: new Date(today.getFullYear(), today.getMonth(), today.getDate())
+                        }
+                    },
+                    {
+                        updatedAt: {
+                            [Sequelize.Op.gte]: new Date(today.getFullYear(), today.getMonth(), today.getDate())
+                        }
+                    }
+                ]
             },
             order: [
                 ['antrian', 'DESC']

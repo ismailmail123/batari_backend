@@ -4,7 +4,7 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 const cloudinary = require('../config/cloudinary'); // Import modul Cloudinary
-const { user: UserModel, warga_binaan: WbpModel, pengunjung: PengunjungModel, barang_titipan: BarangTitipanModel, sequelize } = require("../models");
+const { user: UserModel, warga_binaan: WbpModel, pengunjung: PengunjungModel, data_pengunjung: DataPengunjungModel, barang_titipan: BarangTitipanModel, sequelize } = require("../models");
 const { Op, Sequelize } = require("sequelize");
 const nodemailer = require("nodemailer");
 const PDFDocument = require("pdfkit");
@@ -15,7 +15,7 @@ const { format, toZonedTime } = require('date-fns-tz');
 
 const generateVerificationCode = () => crypto.randomBytes(3).toString("hex").toUpperCase(); // 6 karakter kode acak
 
-const sendBarcode = async(email, qrCodeUrl) => {
+const sendBarcode = async(email, qrCodeUrl, nama) => {
     const transporter = nodemailer.createTransport({
         service: "gmail",
         auth: {
@@ -31,7 +31,9 @@ const sendBarcode = async(email, qrCodeUrl) => {
         from: process.env.GMAIL_USER,
         to: email,
         subject: "at your barcode",
+        name: `name: ${nama}`,
         text: `Your link barcode is: ${qrCodeUrl}`,
+
     };
 
     await transporter.sendMail(mailOptions);
@@ -61,6 +63,41 @@ const index = async(req, res, _next) => {
                 }
             ],
         });
+
+        return res.send({
+            message: "Success",
+            data: pengunjungs,
+        });
+    } catch (error) {
+        console.log("Error:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
+
+const getPengunjung = async(req, res, _next) => {
+    try {
+        const currentUser = req.user; // User yang sedang login
+        let pengunjungs;
+
+        console.log("uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuser", currentUser)
+
+        if (currentUser.role === 'admin') {
+            // Jika role admin, tampilkan semua data pengunjung
+            pengunjungs = await DataPengunjungModel.findAll({
+                include: [{
+                    model: UserModel,
+                    as: "user",
+                }],
+            });
+        } else {
+            // Jika bukan admin, tampilkan data pengunjung berdasarkan user yang login dari UserModel
+            pengunjungs = await UserModel.findOne({
+                where: {
+                    id: currentUser.id // Filter berdasarkan ID user yang login
+                },
+                attributes: { exclude: ['password'] }, // Selalu kecualikan password
+            });
+        }
 
         return res.send({
             message: "Success",
@@ -385,6 +422,64 @@ const show = async(req, res, next) => {
         return res.status(500).send({ message: "Internal Server Error" });
     }
 };
+const showPengunjungData = async(req, res, next) => {
+    try {
+        const { kode } = req.params; // Ambil kode dari req.body
+
+        // Validasi: Pastikan kode ada di req.body
+        if (!kode) {
+            return res.status(400).send({
+                message: "Kode harus disertakan dalam request body",
+                data: null
+            });
+        }
+
+        // Cari pengunjung berdasarkan kode
+        const pengunjung = await DataPengunjungModel.findOne({
+            where: { kode: kode }, // Gunakan where clause untuk mencari berdasarkan kode
+            attributes: [
+                "id",
+                "user_id",
+                "nama",
+                "jenis_kelamin",
+                "nik",
+                "alamat",
+                "hp",
+                "hubungan_keluarga",
+                "kode",
+                "photo_ktp",
+                "photo_pengunjung",
+                "barcode",
+                "created_at",
+                "updated_at"
+            ],
+            include: [{
+                    model: UserModel,
+                    as: "user",
+                },
+
+            ],
+        });
+
+        // Jika pengunjung tidak ditemukan
+        if (!pengunjung) {
+            return res.status(404).send({
+                message: "Pengunjung tidak ditemukan",
+                data: null
+            });
+        }
+
+        // Jika pengunjung ditemukan
+        return res.send({
+            message: "Success",
+            data: pengunjung,
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
 
 
 /**
@@ -493,7 +588,132 @@ const create = async(req, res, _next) => {
             pengikut_anak_anak,
             pengikut_bayi,
             total_pengikut,
-            keterangan
+            keterangan,
+            kode,
+            photo_ktp,
+            photo_pengunjung,
+            barcode
+        } = req.body;
+
+        console.log("user:", currentUser);
+
+        // const verificationCode = generateVerificationCode();
+
+        // // Data yang akan dienkripsi ke dalam QR Code
+        // const qrCodeData = verificationCode
+
+
+        // // Path untuk menyimpan QR Code
+        // const qrCodeDir = path.join(__dirname, '..', 'public', 'qrcodes');
+        // if (!fs.existsSync(qrCodeDir)) {
+        //     fs.mkdirSync(qrCodeDir, { recursive: true }); // Buat direktori jika belum ada
+        // }
+
+        // const qrCodeFileName = `${verificationCode}.png`;
+        // const qrCodePath = path.join(qrCodeDir, qrCodeFileName);
+
+        // // Generate QR Code dan simpan sebagai gambar
+        // await QRCode.toFile(qrCodePath, qrCodeData, {
+        //     width: 300, // Ukuran QR Code
+        //     errorCorrectionLevel: 'H' // Tingkat koreksi error (High)
+        // });
+
+        // console.log("QR Code created successfully:", qrCodePath);
+
+        // // Upload QR Code ke Cloudinary
+        // const cloudinaryUploadResult = await cloudinary.uploader.upload(qrCodePath, {
+        //     folder: 'qrcodes' // Folder di Cloudinary untuk menyimpan QR Code
+        // });
+
+        // console.log("QR Code uploaded to Cloudinary:", cloudinaryUploadResult.secure_url);
+
+        // // URL publik untuk mengakses QR Code dari Cloudinary
+        // const qrCodeUrl = cloudinaryUploadResult.secure_url;
+
+        // console.log("QR Code URL:", qrCodeUrl);
+
+        // // Hapus file QR Code lokal setelah diupload ke Cloudinary
+        // fs.unlinkSync(qrCodePath);
+
+        // Inisialisasi objek untuk menyimpan data pengunjung
+        const pengunjungData = {
+            user_id: currentUser,
+            wbp_id,
+            nama,
+            jenis_kelamin,
+            nik,
+            alamat,
+            hp,
+            hubungan_keluarga,
+            tujuan,
+            pengikut_laki_laki,
+            pengikut_perempuan,
+            pengikut_anak_anak,
+            pengikut_bayi,
+            kode,
+            total_pengikut,
+            keterangan,
+            photo_ktp,
+            photo_pengunjung,
+            barcode // Simpan URL QR Code dari Cloudinary ke database
+        };
+
+        console.log("Pengunjung Data:", pengunjungData);
+
+        // Jika file photo_ktp diunggah, tambahkan URL-nya ke pengunjungData
+        if (req.files && req.files.photo_ktp) {
+            const ktpUploadResult = await cloudinary.uploader.upload(req.files.photo_ktp[0].path, {
+                folder: 'photo_ktp' // Folder di Cloudinary untuk menyimpan foto KTP
+            });
+            pengunjungData.photo_ktp = ktpUploadResult.secure_url; // Simpan URL Cloudinary ke database
+        }
+
+        // Jika file photo_pengunjung diunggah, tambahkan URL-nya ke pengunjungData
+        if (req.files && req.files.photo_pengunjung) {
+            const pengunjungUploadResult = await cloudinary.uploader.upload(req.files.photo_pengunjung[0].path, {
+                folder: 'photo_pengunjung' // Folder di Cloudinary untuk menyimpan foto pengunjung
+            });
+            pengunjungData.photo_pengunjung = pengunjungUploadResult.secure_url; // Simpan URL Cloudinary ke database
+        }
+
+        // Buat data pengunjung baru di database
+        const newPengunjung = await PengunjungModel.create(pengunjungData);
+        // await sendBarcode(email, qrCodeUrl)
+
+        return res.status(201).send({
+            message: "Pengunjung created successfully",
+            data: newPengunjung,
+        });
+    } catch (error) {
+        console.error("Error:", error.message);
+
+        // Tangani error Multer
+        if (error instanceof multer.MulterError) {
+            return res.status(400).send({ message: error.message });
+        } else if (error.message === "File harus berupa gambar!") {
+            return res.status(400).send({ message: error.message });
+        } else {
+            // Tangani error lainnya
+            return res.status(500).send({ message: "Internal Server Error" });
+        }
+    }
+};
+
+
+const createDataPengunjung = async(req, res, _next) => {
+    try {
+        const currentUser = req.user.id;
+        const email = req.user.email;
+        console.log("ini email", email)
+        const {
+            nama,
+            jenis_kelamin,
+            nik,
+            alamat,
+            hp,
+            hubungan_keluarga,
+            photo_ktp,
+            photo_pengunjung,
         } = req.body;
 
         console.log("user:", currentUser);
@@ -539,21 +759,15 @@ const create = async(req, res, _next) => {
         // Inisialisasi objek untuk menyimpan data pengunjung
         const pengunjungData = {
             user_id: currentUser,
-            wbp_id,
             nama,
             jenis_kelamin,
             nik,
             alamat,
             hp,
             hubungan_keluarga,
-            tujuan,
-            pengikut_laki_laki,
-            pengikut_perempuan,
-            pengikut_anak_anak,
-            pengikut_bayi,
+            photo_ktp,
+            photo_pengunjung,
             kode: verificationCode,
-            total_pengikut,
-            keterangan,
             barcode: qrCodeUrl // Simpan URL QR Code dari Cloudinary ke database
         };
 
@@ -576,8 +790,8 @@ const create = async(req, res, _next) => {
         }
 
         // Buat data pengunjung baru di database
-        const newPengunjung = await PengunjungModel.create(pengunjungData);
-        await sendBarcode(email, qrCodeUrl)
+        const newPengunjung = await DataPengunjungModel.create(pengunjungData);
+        await sendBarcode(email, qrCodeUrl, nama)
 
         return res.status(201).send({
             message: "Pengunjung created successfully",
@@ -763,6 +977,81 @@ const update = async(req, res, _next) => {
             return res.status(400).send({ message: error.message });
         } else {
             // Tangani error lainnya
+            return res.status(500).send({ message: "Internal Server Error" });
+        }
+    }
+};
+const updateDataPengunjung = async(req, res, _next) => {
+    const currentUser = req.user.id;
+    try {
+        const { kode } = req.params;
+        const {
+            nama,
+            jenis_kelamin,
+            nik,
+            alamat,
+            hp,
+            hubungan_keluarga,
+        } = req.body;
+
+        console.log("Request body:", req.body);
+        console.log("Current user:", currentUser);
+
+        // Cari data pengunjung berdasarkan kode
+        const pengunjung = await DataPengunjungModel.findOne({ where: { kode } });
+
+        if (!pengunjung) {
+            return res.status(404).send({
+                message: "Data pengunjung tidak ditemukan",
+                data: null,
+            });
+        }
+
+        // Inisialisasi objek untuk menyimpan data yang akan diupdate
+        const updateData = {
+            user_id: currentUser,
+            nama,
+            jenis_kelamin,
+            nik,
+            alamat,
+            hp,
+            hubungan_keluarga,
+        };
+
+        // Jika file photo_ktp diunggah, upload ke Cloudinary dan update path
+        if (req.files && req.files.photo_ktp) {
+            const ktpUploadResult = await cloudinary.uploader.upload(req.files.photo_ktp[0].path, {
+                folder: 'photo_ktp'
+            });
+            updateData.photo_ktp = ktpUploadResult.secure_url;
+        }
+
+        // Jika file photo_pengunjung diunggah, upload ke Cloudinary dan update path
+        if (req.files && req.files.photo_pengunjung) {
+            const pengunjungUploadResult = await cloudinary.uploader.upload(req.files.photo_pengunjung[0].path, {
+                folder: 'photo_pengunjung'
+            });
+            updateData.photo_pengunjung = pengunjungUploadResult.secure_url;
+        }
+
+        // Update data pengunjung
+        await pengunjung.update(updateData);
+
+        console.log("Updated Data Pengunjung:", pengunjung);
+
+        return res.send({
+            message: "Data pengunjung berhasil diupdate",
+            data: pengunjung,
+        });
+    } catch (error) {
+        console.error("Error:", error.message);
+
+        // Tangani error Multer
+        if (error instanceof multer.MulterError) {
+            return res.status(400).send({ message: error.message });
+        } else if (error.message === "File harus berupa gambar!") {
+            return res.status(400).send({ message: error.message });
+        } else {
             return res.status(500).send({ message: "Internal Server Error" });
         }
     }
@@ -1200,10 +1489,14 @@ const verifyCode = async(req, res, next) => {
 
 module.exports = {
     index,
+    getPengunjung,
     indexUser,
     show,
+    showPengunjungData,
     create,
+    createDataPengunjung,
     update,
+    updateDataPengunjung,
     verifyCode,
     updateAntrian,
     getLastAntrian,

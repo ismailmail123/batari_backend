@@ -15,6 +15,10 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "user_id",
                 as: "pengunjung"
             })
+            user.hasMany(models.pengunjung, {
+                foreignKey: "user_id",
+                as: "data-pengunjung"
+            })
             user.hasMany(models.warga_binaan, {
                 foreignKey: "user_id",
                 as: "warga_binaan"

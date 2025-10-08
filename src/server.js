@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const app = express();
 
 const authRouter = require("./routes/auth.router");
+const userRouter = require("./routes/user.router");
 const wbpRouter = require("./routes/wbp.router");
 const pengunjungRouter = require("./routes/pengunjung.router");
 const barang_titipanRouter = require("./routes/barang_titipan.router");
@@ -33,6 +34,7 @@ app.use("/struks", express.static(path.join(process.cwd(), "./")));;
 
 
 app.use("/api/auth", authRouter);
+app.use("/api/users", userRouter);
 app.use("/api/wargabinaan", wbpRouter);
 app.use("/api/pengunjung", pengunjungRouter);
 app.use("/api/barang-titipan", barang_titipanRouter);

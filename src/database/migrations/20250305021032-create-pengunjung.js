@@ -75,14 +75,16 @@ module.exports = {
             },
             created_at: {
                 allowNull: false,
-                defaultValue: Sequelize.fn("NOW"),
-                type: Sequelize.DATE
+                type: 'TIMESTAMP',
+                defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
             },
             updated_at: {
                 allowNull: false,
-                defaultValue: Sequelize.fn("NOW"),
-                type: Sequelize.DATE
-            }
+                type: 'TIMESTAMP',
+                defaultValue: Sequelize.literal(
+                    'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'
+                ),
+            },
         });
     },
     async down(queryInterface, Sequelize) {

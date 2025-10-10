@@ -354,9 +354,79 @@ const getLastAntrian = async(req, res) => {
 
 const show = async(req, res, next) => {
     try {
-        const { kode } = req.params; // Ambil kode dari req.body
+        const { id } = req.params; // Ambil id dari req.body
 
-        // Validasi: Pastikan kode ada di req.body
+        // Validasi: Pastikan id ada di req.body
+        if (!id) {
+            return res.status(400).send({
+                message: "Kode harus disertakan dalam request body",
+                data: null
+            });
+        }
+
+        // Cari pengunjung berdasarkan kode
+        const pengunjung = await PengunjungModel.findOne({
+            where: { id: id }, // Gunakan where clause untuk mencari berdasarkan id
+            attributes: [
+                "id",
+                "user_id",
+                "wbp_id",
+                "nama",
+                "jenis_kelamin",
+                "nik",
+                "alamat",
+                "hp",
+                "hubungan_keluarga",
+                "tujuan",
+                "pengikut_laki_laki",
+                "pengikut_perempuan",
+                "pengikut_anak_anak",
+                "pengikut_bayi",
+                "total_pengikut",
+                "kode",
+                "photo_ktp",
+                "photo_pengunjung",
+                "barcode",
+                "status",
+                "antrian",
+                "created_at",
+                "updated_at"
+            ],
+            include: [{
+                    model: WbpModel,
+                    as: "warga_binaan",
+                },
+                {
+                    model: BarangTitipanModel,
+                    as: "barang_titipan",
+                }
+            ],
+        });
+
+        // Jika pengunjung tidak ditemukan
+        if (!pengunjung) {
+            return res.status(404).send({
+                message: "Pengunjung tidak ditemukan",
+                data: null
+            });
+        }
+
+        // Jika pengunjung ditemukan
+        return res.send({
+            message: "Success",
+            data: pengunjung,
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
+const showByKode = async(req, res, next) => {
+    try {
+        const { kode } = req.params; // Ambil id dari req.body
+
+        // Validasi: Pastikan id ada di req.body
         if (!kode) {
             return res.status(400).send({
                 message: "Kode harus disertakan dalam request body",
@@ -366,7 +436,7 @@ const show = async(req, res, next) => {
 
         // Cari pengunjung berdasarkan kode
         const pengunjung = await PengunjungModel.findOne({
-            where: { kode: kode }, // Gunakan where clause untuk mencari berdasarkan kode
+            where: { kode: kode }, // Gunakan where clause untuk mencari berdasarkan id
             attributes: [
                 "id",
                 "user_id",
@@ -424,17 +494,77 @@ const show = async(req, res, next) => {
 };
 const showPengunjungData = async(req, res, next) => {
     try {
-        const { kode } = req.params; // Ambil kode dari req.body
+        const { id } = req.params; // Ambil id dari req.body
 
-        // Validasi: Pastikan kode ada di req.body
-        if (!kode) {
+        // Validasi: Pastikan id ada di req.body
+        if (!id) {
             return res.status(400).send({
-                message: "Kode harus disertakan dalam request body",
+                message: "id harus disertakan dalam request body",
                 data: null
             });
         }
 
-        // Cari pengunjung berdasarkan kode
+        // Cari pengunjung berdasarkan id
+        const pengunjung = await DataPengunjungModel.findOne({
+            where: { id: id }, // Gunakan where clause untuk mencari berdasarkan kode
+            attributes: [
+                "id",
+                "user_id",
+                "nama",
+                "jenis_kelamin",
+                "nik",
+                "alamat",
+                "hp",
+                "hubungan_keluarga",
+                "kode",
+                "photo_ktp",
+                "photo_pengunjung",
+                "barcode",
+                "created_at",
+                "updated_at"
+            ],
+            include: [{
+                    model: UserModel,
+                    as: "user",
+                },
+
+            ],
+        });
+
+        // Jika pengunjung tidak ditemukan
+        if (!pengunjung) {
+            return res.status(404).send({
+                message: "Pengunjung tidak ditemukan",
+                data: null
+            });
+        }
+
+        // Jika pengunjung ditemukan
+        return res.send({
+            message: "Success",
+            data: pengunjung,
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
+const showPengunjungByKode = async(req, res, next) => {
+    try {
+        const { kode } = req.params; // Ambil id dari req.body
+
+        console.log("kkkkkkkkkkkkkkkkkkkkkode", kode)
+
+        // Validasi: Pastikan id ada di req.body
+        // if (!kode) {
+        //     return res.status(400).send({
+        //         message: "id harus disertakan dalam request body",
+        //         data: null
+        //     });
+        // }
+
+        // Cari pengunjung berdasarkan id
         const pengunjung = await DataPengunjungModel.findOne({
             where: { kode: kode }, // Gunakan where clause untuk mencari berdasarkan kode
             attributes: [
@@ -900,7 +1030,7 @@ const createDataPengunjung = async(req, res, _next) => {
 const update = async(req, res, _next) => {
     const currentUser = req.user.id;
     try {
-        const { kode } = req.params; // ID pengunjung yang akan diupdate
+        const { id } = req.params; // ID pengunjung yang akan diupdate
         const {
             wbp_id,
             nama,
@@ -921,7 +1051,7 @@ const update = async(req, res, _next) => {
         console.log("current user", currentUser);
 
         // Cari pengunjung berdasarkan ID
-        const pengunjung = await PengunjungModel.findOne({ where: { kode } });
+        const pengunjung = await PengunjungModel.findOne({ where: { id } });
 
         if (!pengunjung) {
             return res.status(404).send({
@@ -999,6 +1129,8 @@ const updateDataPengunjung = async(req, res, _next) => {
 
         // Cari data pengunjung berdasarkan kode
         const pengunjung = await DataPengunjungModel.findOne({ where: { kode } });
+
+        console.log("pengun jung iiiiiiiiiiiiiiiiiiiiiii", pengunjung)
 
         if (!pengunjung) {
             return res.status(404).send({
@@ -1210,13 +1342,15 @@ const updateDataPengunjung = async(req, res, _next) => {
 const updateAntrian = async(req, res) => {
     const transaction = await sequelize.transaction();
     try {
-        const { kode } = req.body;
-        if (!kode) {
+        const { id } = req.body;
+
+        console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaantrian", req.body)
+        if (!id) {
             await transaction.rollback();
             return res.status(400).send({ message: "Kode harus disertakan dalam request body", data: null });
         }
 
-        const pengunjung = await PengunjungModel.findOne({ where: { kode }, transaction });
+        const pengunjung = await PengunjungModel.findOne({ where: { id }, transaction });
         if (!pengunjung) {
             await transaction.rollback();
             return res.status(404).send({ message: "Pengunjung tidak ditemukan", data: null });
@@ -1492,7 +1626,9 @@ module.exports = {
     getPengunjung,
     indexUser,
     show,
+    showByKode,
     showPengunjungData,
+    showPengunjungByKode,
     create,
     createDataPengunjung,
     update,

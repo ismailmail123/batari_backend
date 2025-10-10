@@ -9,7 +9,7 @@ const upload = multer({ storage: storage });
 
 
 
-const { index, getPengunjung, indexUser, show, showPengunjungData, create, createDataPengunjung, update, updateDataPengunjung, verifyCode, updateAntrian, getLastAntrian, listStruk, cetakLabelTitipan } = require("../controllers/pengunjung.controller.js");
+const { index, getPengunjung, indexUser, show, showByKode, showPengunjungData, showPengunjungByKode, create, createDataPengunjung, update, updateDataPengunjung, verifyCode, updateAntrian, getLastAntrian, listStruk, cetakLabelTitipan } = require("../controllers/pengunjung.controller.js");
 const { validateToken } = require("../middlewares/auth.js")
 
 // /api/babs
@@ -19,8 +19,11 @@ router.get("/struk", listStruk);
 router.get("/user", validateToken, indexUser);
 router.post("/cetak-label", cetakLabelTitipan);
 router.get("/antrian-terakhir", validateToken, getLastAntrian);
-router.get("/:kode", validateToken, show);
-router.get("/pengunjung-data/:kode", validateToken, showPengunjungData);
+router.get("/bykode/:kode", validateToken, showByKode);
+router.get("/:id", validateToken, show);
+// router.get("/:kode", validateToken, showByKode);
+router.get("/pengunjung-data/:id", validateToken, showPengunjungData);
+router.get("/pengunjung-data/bykode/:kode", validateToken, showPengunjungByKode);
 router.put("/update-antrian", validateToken, updateAntrian);
 router.post("/", validateToken,
     upload.fields([
@@ -34,7 +37,7 @@ router.post("/pengunjung-data", validateToken,
         { name: "photo_pengunjung", maxCount: 1 }, // Field untuk foto bukti penerimaan
     ]),
     createDataPengunjung);
-router.put("/:kode", validateToken,
+router.put("/:id", validateToken,
     upload.fields([
         { name: "photo_ktp", maxCount: 1 }, // Field untuk foto struk pembelian
         { name: "photo_pengunjung", maxCount: 1 }, // Field untuk foto bukti penerimaan

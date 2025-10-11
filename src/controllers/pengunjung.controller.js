@@ -11,6 +11,7 @@ const PDFDocument = require("pdfkit");
 const { printer: ThermalPrinter, types: PrinterTypes } = require("node-thermal-printer");
 
 const { format, toZonedTime } = require('date-fns-tz');
+const { printTicket } = require('../utils/printService');
 
 
 const generateVerificationCode = () => crypto.randomBytes(3).toString("hex").toUpperCase(); // 6 karakter kode acak
@@ -806,6 +807,7 @@ const create = async(req, res, _next) => {
             pengunjungData.photo_pengunjung = pengunjungUploadResult.secure_url; // Simpan URL Cloudinary ke database
         }
 
+
         // Buat data pengunjung baru di database
         const newPengunjung = await PengunjungModel.create(pengunjungData);
         // await sendBarcode(email, qrCodeUrl)
@@ -1339,12 +1341,88 @@ const updateDataPengunjung = async(req, res, _next) => {
 //     }
 // };
 
+// const updateAntrian = async(req, res) => {
+//     const transaction = await sequelize.transaction();
+//     try {
+//         const { id } = req.body;
+
+//         console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaantrian", req.body)
+//         if (!id) {
+//             await transaction.rollback();
+//             return res.status(400).send({ message: "Kode harus disertakan dalam request body", data: null });
+//         }
+
+//         const pengunjung = await PengunjungModel.findOne({ where: { id }, transaction });
+//         if (!pengunjung) {
+//             await transaction.rollback();
+//             return res.status(404).send({ message: "Pengunjung tidak ditemukan", data: null });
+//         }
+
+//         // Waktu dan zona waktu Makassar
+//         const timeZone = 'Asia/Makassar';
+//         const now = new Date();
+//         const zonedDate = toZonedTime(now, timeZone);
+
+//         const dateString = format(zonedDate, 'yyyyMMdd');
+//         const startOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T00:00:00+08:00');
+//         const endOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T23:59:59.999+08:00');
+
+//         // query menggunakan dateString dan range startOfDay, endOfDay
+
+
+//         // Cari nomor antrian terbesar hari ini
+//         const lastPengunjung = await PengunjungModel.findOne({
+//             where: {
+//                 antrian: {
+//                     [Sequelize.Op.like]: `${dateString}-%`
+//                 },
+//                 createdAt: {
+//                     [Sequelize.Op.between]: [startOfDay, endOfDay]
+//                 }
+//             },
+//             order: [
+//                 ['antrian', 'DESC']
+//             ],
+//             lock: transaction.LOCK.UPDATE,
+//             transaction,
+//             attributes: ['antrian']
+//         });
+
+//         let lastNumber = 0;
+//         if (lastPengunjung && lastPengunjung.antrian) {
+//             const lastAntrian = lastPengunjung.antrian;
+//             if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
+//                 const lastNumberStr = lastAntrian.split('-')[1];
+//                 lastNumber = parseInt(lastNumberStr, 10);
+//             }
+//         }
+
+//         // Generate nomor antrian baru dengan penambahan 1
+//         const newAntrianNumber = lastNumber + 1;
+//         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
+
+//         // Update nomor antrian
+//         await pengunjung.update({ antrian: newAntrian }, { transaction });
+
+//         await transaction.commit();
+
+//         return res.send({
+//             message: "Antrian berhasil diupdate",
+//             data: {...pengunjung.toJSON(), antrian: newAntrian }
+//         });
+
+//     } catch (error) {
+//         await transaction.rollback();
+//         console.error("Error:", error.message);
+//         return res.status(500).send({ message: "Internal Server Error" });
+//     }
+// };
+
 const updateAntrian = async(req, res) => {
     const transaction = await sequelize.transaction();
     try {
         const { id } = req.body;
 
-        console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaantrian", req.body)
         if (!id) {
             await transaction.rollback();
             return res.status(400).send({ message: "Kode harus disertakan dalam request body", data: null });
@@ -1356,19 +1434,14 @@ const updateAntrian = async(req, res) => {
             return res.status(404).send({ message: "Pengunjung tidak ditemukan", data: null });
         }
 
-        // Waktu dan zona waktu Makassar
+
         const timeZone = 'Asia/Makassar';
         const now = new Date();
         const zonedDate = toZonedTime(now, timeZone);
-
         const dateString = format(zonedDate, 'yyyyMMdd');
         const startOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T00:00:00+08:00');
         const endOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T23:59:59.999+08:00');
 
-        // query menggunakan dateString dan range startOfDay, endOfDay
-
-
-        // Cari nomor antrian terbesar hari ini
         const lastPengunjung = await PengunjungModel.findOne({
             where: {
                 antrian: {
@@ -1395,17 +1468,23 @@ const updateAntrian = async(req, res) => {
             }
         }
 
-        // Generate nomor antrian baru dengan penambahan 1
         const newAntrianNumber = lastNumber + 1;
         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
 
-        // Update nomor antrian
         await pengunjung.update({ antrian: newAntrian }, { transaction });
-
         await transaction.commit();
 
+        // 🖨️ Cetak tiket otomatis setelah update berhasil
+        printTicket({
+            antrian: newAntrian,
+            nama: pengunjung.nama,
+            barcode: pengunjung.barcode,
+            kode: pengunjung.kode,
+            tanggal: format(zonedDate, 'dd-MM-yyyy'),
+        });
+
         return res.send({
-            message: "Antrian berhasil diupdate",
+            message: "Antrian berhasil diupdate & dicetak otomatis",
             data: {...pengunjung.toJSON(), antrian: newAntrian }
         });
 

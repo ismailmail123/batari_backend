@@ -261,13 +261,13 @@ const create = async(req, res, _next) => {
             }]
         });
 
-        // Cetak label titipan OTOMATIS
-        printLabelTitipan({
-            jenis_barang,
-            jumlah,
-            keterangan,
-            pengunjung: barangTitipanLengkap.pengunjung
-        });
+        // // Cetak label titipan OTOMATIS
+        // printLabelTitipan({
+        //     jenis_barang,
+        //     jumlah,
+        //     keterangan,
+        //     pengunjung: barangTitipanLengkap.pengunjung
+        // });
 
         // Kirim response sukses
         return res.status(201).send({

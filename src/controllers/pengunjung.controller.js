@@ -1474,14 +1474,14 @@ const updateAntrian = async(req, res) => {
         await pengunjung.update({ antrian: newAntrian }, { transaction });
         await transaction.commit();
 
-        // 🖨️ Cetak tiket otomatis setelah update berhasil
-        printTicket({
-            antrian: newAntrian,
-            nama: pengunjung.nama,
-            barcode: pengunjung.barcode,
-            kode: pengunjung.kode,
-            tanggal: format(zonedDate, 'dd-MM-yyyy'),
-        });
+        // // 🖨️ Cetak tiket otomatis setelah update berhasil
+        // printTicket({
+        //     antrian: newAntrian,
+        //     nama: pengunjung.nama,
+        //     barcode: pengunjung.barcode,
+        //     kode: pengunjung.kode,
+        //     tanggal: format(zonedDate, 'dd-MM-yyyy'),
+        // });
 
         return res.send({
             message: "Antrian berhasil diupdate & dicetak otomatis",

@@ -80,15 +80,20 @@ const getPengunjung = async(req, res, _next) => {
         const currentUser = req.user; // User yang sedang login
         let pengunjungs;
 
-        console.log("uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuser", currentUser)
 
         if (currentUser.role === 'admin') {
             // Jika role admin, tampilkan semua data pengunjung
             pengunjungs = await DataPengunjungModel.findAll({
                 include: [{
-                    model: UserModel,
-                    as: "user",
-                }],
+                        model: UserModel,
+                        as: "user",
+                    },
+                    {
+                        model: WbpModel,
+                        as: "warga_binaan",
+                    }
+
+                ],
             });
         } else {
             // Jika bukan admin, tampilkan data pengunjung berdasarkan user yang login dari UserModel
@@ -487,6 +492,7 @@ const showPengunjungData = async(req, res, next) => {
             attributes: [
                 "id",
                 "user_id",
+                "wbp_id",
                 "nama",
                 "jenis_kelamin",
                 "nik",
@@ -504,6 +510,10 @@ const showPengunjungData = async(req, res, next) => {
                     model: UserModel,
                     as: "user",
                 },
+                {
+                    model: WbpModel,
+                    as: "warga_binaan",
+                }
 
             ],
         });
@@ -547,6 +557,7 @@ const showPengunjungByKode = async(req, res, next) => {
             attributes: [
                 "id",
                 "user_id",
+                "wbp_id",
                 "nama",
                 "jenis_kelamin",
                 "nik",
@@ -564,7 +575,10 @@ const showPengunjungByKode = async(req, res, next) => {
                     model: UserModel,
                     as: "user",
                 },
-
+                {
+                    model: WbpModel,
+                    as: "warga_binaan",
+                }
             ],
         });
 
@@ -814,6 +828,7 @@ const createDataPengunjung = async(req, res, _next) => {
         const email = req.user.email;
         console.log("ini email", email)
         const {
+            wbp_id,
             nama,
             jenis_kelamin,
             nik,
@@ -867,6 +882,7 @@ const createDataPengunjung = async(req, res, _next) => {
         // Inisialisasi objek untuk menyimpan data pengunjung
         const pengunjungData = {
             user_id: currentUser,
+            wbp_id,
             nama,
             jenis_kelamin,
             nik,
@@ -1094,6 +1110,7 @@ const updateDataPengunjung = async(req, res, _next) => {
     try {
         const { kode } = req.params;
         const {
+            wbp_id,
             nama,
             jenis_kelamin,
             nik,
@@ -1120,6 +1137,7 @@ const updateDataPengunjung = async(req, res, _next) => {
         // Inisialisasi objek untuk menyimpan data yang akan diupdate
         const updateData = {
             user_id: currentUser,
+            wbp_id,
             nama,
             jenis_kelamin,
             nik,

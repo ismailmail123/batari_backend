@@ -15,10 +15,15 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "user_id",
                 as: "user"
             })
+            data_pengunjung.belongsTo(models.warga_binaan, {
+                foreignKey: "wbp_id",
+                as: "warga_binaan"
+            })
         }
     }
     data_pengunjung.init({
         user_id: DataTypes.INTEGER,
+        wbp_id: DataTypes.INTEGER,
         nama: DataTypes.STRING,
         jenis_kelamin: DataTypes.ENUM("laki-laki", "perempuan"),
         nik: DataTypes.STRING,

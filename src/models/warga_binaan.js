@@ -15,6 +15,10 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "wbp_id",
                 as: "pengunjung"
             })
+            warga_binaan.hasMany(models.data_pengunjung, {
+                foreignKey: "wbp_id",
+                as: "data_pengunjung"
+            })
             warga_binaan.belongsTo(models.user, {
                 foreignKey: "user_id",
                 as: "user"

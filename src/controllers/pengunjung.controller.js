@@ -149,50 +149,8 @@ const indexUser = async(req, res, _next) => {
  * @param {import("express").Request} req
  * @param {import("express").Response} res
  */
-// const getLastAntrian = async(req, res) => {
-//     try {
-//         // Cari pengunjung dengan antrian terakhir (berdasarkan created_at)
-//         const lastPengunjung = await PengunjungModel.findOne({
-//             where: {
-//                 antrian: {
-//                     [Op.not]: null, // Hanya ambil data yang antrian-nya tidak null
-//                     [Op.like]: '%-%' // Hanya ambil data yang mengandung tanda '-'
-//                 }
-//             },
-//             order: [
-//                 ['created_at', 'DESC']
-//             ], // Urutkan berdasarkan created_at descending
-//             attributes: ['antrian'], // Ambil hanya kolom antrian
-//         });
 
-//         console.log("Lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllast Pengunjung:", lastPengunjung);
 
-//         let lastNumber = 0;
-
-//         // Jika ada data pengunjung dengan antrian, ekstrak nomor terakhir
-//         if (lastPengunjung && lastPengunjung.antrian) {
-//             const lastAntrian = lastPengunjung.antrian;
-
-//             // Pastikan lastAntrian adalah string dan memiliki format yang benar
-//             if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
-//                 const lastNumberStr = lastAntrian.split('-')[1]; // Ambil bagian nomor setelah tanggal
-//                 lastNumber = parseInt(lastNumberStr, 10); // Konversi ke integer
-//             } else {
-//                 console.warn('Format antrian tidak valid:', lastAntrian);
-//             }
-//         }
-
-//         return res.status(200).json({
-//             message: "Success",
-//             lastNumber: lastNumber,
-//         });
-//     } catch (error) {
-//         console.error("Error fetching last antrian:", error);
-//         return res.status(500).json({
-//             message: "Internal Server Error",
-//         });
-//     }
-// };
 // const getLastAntrian = async(req, res) => {
 //     try {
 //         // Dapatkan tanggal hari ini dalam format YYYYMMDD
@@ -215,26 +173,30 @@ const indexUser = async(req, res, _next) => {
 
 //         console.log("Antrian hari ini:", antrianHariIni.map(a => a.antrian));
 
-//         let lastNumber = 0;
+//         let lastNumber = "000"; // Default "000" jika tidak ada antrian
 
-//         // Ekstrak nomor-nomor dan cari yang terbesar
+//         // Ekstrak tiga angka terakhir dari nomor antrian
 //         if (antrianHariIni.length > 0) {
 //             const numbers = antrianHariIni.map(pengunjung => {
 //                 const antrian = pengunjung.antrian;
 //                 if (typeof antrian === 'string' && antrian.includes('-')) {
-//                     const numberStr = antrian.split('-')[1];
-//                     return parseInt(numberStr, 10);
+//                     // Ambil bagian setelah tanda '-' (tiga angka terakhir)
+//                     return antrian.split('-')[1];
 //                 }
-//                 return 0;
-//             }).filter(num => !isNaN(num));
+//                 return "000";
+//             }).filter(num => num !== "000"); // Hapus nilai default dari array
 
-//             // Cari nomor terbesar
-//             lastNumber = numbers.length > 0 ? Math.max(...numbers) : 0;
+//             // Cari nomor terbesar dari tiga angka terakhir
+//             if (numbers.length > 0) {
+//                 lastNumber = numbers.reduce((max, current) => {
+//                     return current > max ? current : max;
+//                 });
+//             }
 //         }
 
 //         return res.status(200).json({
 //             message: "Success",
-//             lastNumber: lastNumber,
+//             lastNumber: lastNumber, // Format: "016", "017", dst.
 //             tanggal: todayString
 //         });
 //     } catch (error) {
@@ -244,23 +206,33 @@ const indexUser = async(req, res, _next) => {
 //         });
 //     }
 // };
+
 const getLastAntrian = async(req, res) => {
     try {
         // Dapatkan tanggal hari ini dalam format YYYYMMDD
-        const today = new Date();
-        const todayString = today.getFullYear() +
-            String(today.getMonth() + 1).padStart(2, '0') +
-            String(today.getDate()).padStart(2, '0');
+        const timeZone = 'Asia/Makassar';
+        const now = new Date();
+        const zonedDate = toZonedTime(now, timeZone);
+        const todayString = format(zonedDate, 'yyyyMMdd');
+
+        // Tentukan sesi berdasarkan waktu
+        const hour = parseInt(format(zonedDate, 'HH', { timeZone: timeZone }), 10);
+        const isSesiPagi = hour >= 0 && hour < 12;
+        const sesiPrefix = isSesiPagi ? '' : 'A';
 
         console.log("Tanggal hari ini:", todayString);
+        console.log("Sesi:", isSesiPagi ? "Pagi" : "Siang");
+        console.log("Prefix:", sesiPrefix);
 
-        // Cari semua antrian untuk tanggal hari ini
+        // Cari semua antrian untuk tanggal hari ini dan sesi yang sesuai
+        const whereCondition = {
+            antrian: {
+                [Op.like]: `${todayString}-${sesiPrefix}%`
+            }
+        };
+
         const antrianHariIni = await PengunjungModel.findAll({
-            where: {
-                antrian: {
-                    [Op.like]: `${todayString}-%` // Hanya ambil yang dimulai dengan tanggal hari ini
-                }
-            },
+            where: whereCondition,
             attributes: ['antrian'],
         });
 
@@ -273,8 +245,10 @@ const getLastAntrian = async(req, res) => {
             const numbers = antrianHariIni.map(pengunjung => {
                 const antrian = pengunjung.antrian;
                 if (typeof antrian === 'string' && antrian.includes('-')) {
-                    // Ambil bagian setelah tanda '-' (tiga angka terakhir)
-                    return antrian.split('-')[1];
+                    // Ambil bagian setelah tanda '-' (termasuk prefix A jika ada)
+                    const numberPart = antrian.split('-')[1];
+                    // Hapus prefix 'A' jika ada untuk mendapatkan angka murni
+                    return numberPart.replace('A', '');
                 }
                 return "000";
             }).filter(num => num !== "000"); // Hapus nilai default dari array
@@ -282,7 +256,7 @@ const getLastAntrian = async(req, res) => {
             // Cari nomor terbesar dari tiga angka terakhir
             if (numbers.length > 0) {
                 lastNumber = numbers.reduce((max, current) => {
-                    return current > max ? current : max;
+                    return parseInt(current) > parseInt(max) ? current : max;
                 });
             }
         }
@@ -290,7 +264,9 @@ const getLastAntrian = async(req, res) => {
         return res.status(200).json({
             message: "Success",
             lastNumber: lastNumber, // Format: "016", "017", dst.
-            tanggal: todayString
+            tanggal: todayString,
+            sesi: isSesiPagi ? "pagi" : "siang",
+            prefix: sesiPrefix
         });
     } catch (error) {
         console.error("Error fetching last antrian:", error);
@@ -1194,159 +1170,9 @@ const updateDataPengunjung = async(req, res, _next) => {
 
 // const updateAntrian = async(req, res) => {
 //     const transaction = await sequelize.transaction();
-
-//     try {
-//         const { kode } = req.body;
-
-//         if (!kode) {
-//             await transaction.rollback();
-//             return res.status(400).send({
-//                 message: "Kode harus disertakan dalam request body",
-//                 data: null,
-//             });
-//         }
-
-//         const pengunjung = await PengunjungModel.findOne({
-//             where: { kode },
-//             transaction
-//         });
-
-//         if (!pengunjung) {
-//             await transaction.rollback();
-//             return res.status(404).send({
-//                 message: "Pengunjung tidak ditemukan",
-//                 data: null,
-//             });
-//         }
-
-//         const today = new Date();
-//         const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-
-//         // Cari nomor antrian terbesar dengan lock untuk menghindari race condition
-//         const lastPengunjung = await PengunjungModel.findOne({
-//             where: {
-//                 antrian: {
-//                     [Sequelize.Op.like]: `${dateString}-%`,
-//                 },
-//             },
-//             order: [
-//                 ['antrian', 'DESC']
-//             ],
-//             attributes: ['antrian'],
-//             lock: transaction.LOCK.UPDATE,
-//             transaction
-//         });
-
-//         let lastNumber = 0;
-//         if (lastPengunjung && lastPengunjung.antrian) {
-//             const lastAntrian = lastPengunjung.antrian;
-//             if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
-//                 const lastNumberStr = lastAntrian.split('-')[1];
-//                 lastNumber = parseInt(lastNumberStr, 10);
-//             }
-//         }
-
-//         const newAntrianNumber = lastNumber + 1;
-//         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
-
-//         await pengunjung.update({ antrian: newAntrian }, { transaction });
-//         await transaction.commit();
-
-//         return res.send({
-//             message: "Antrian berhasil diupdate",
-//             data: {
-//                 ...pengunjung.toJSON(),
-//                 antrian: newAntrian,
-//             },
-//         });
-//     } catch (error) {
-//         await transaction.rollback();
-//         console.error("Error:", error.message);
-//         return res.status(500).send({ message: "Internal Server Error" });
-//     }
-// };
-
-// const updateAntrian = async(req, res) => {
-//     const transaction = await sequelize.transaction();
-//     try {
-//         const { kode } = req.body;
-//         if (!kode) {
-//             await transaction.rollback();
-//             return res.status(400).send({ message: "Kode harus disertakan dalam request body", data: null });
-//         }
-
-//         // Cari pengunjung berdasarkan kode dengan transaksi
-//         const pengunjung = await PengunjungModel.findOne({ where: { kode }, transaction });
-//         if (!pengunjung) {
-//             await transaction.rollback();
-//             return res.status(404).send({ message: "Pengunjung tidak ditemukan", data: null });
-//         }
-
-//         // Ambil tanggal hari ini dalam format YYYYMMDD
-//         const today = new Date();
-//         const year = today.getFullYear();
-//         const month = (today.getMonth() + 1).toString().padStart(2, "0");
-//         const day = today.getDate().toString().padStart(2, "0");
-//         const dateString = `${year}${month}${day}`;
-
-//         // Filter batas atas dan bawah tanggal hari ini (midnight sampai sebelum midnight berikutnya)
-//         const startOfDay = new Date(year, today.getMonth(), today.getDate(), 0, 0, 0);
-//         const endOfDay = new Date(year, today.getMonth(), today.getDate(), 23, 59, 59, 999);
-
-//         // Cari nomor antrian terbesar HARI INI dengan filter tanggal dan lock untuk mencegah race condition
-//         const lastPengunjung = await PengunjungModel.findOne({
-//             where: {
-//                 antrian: {
-//                     [Sequelize.Op.like]: `${dateString}-%` // Hanya nomor antrian hari ini
-//                 },
-//                 createdAt: {
-//                     [Sequelize.Op.between]: [startOfDay, endOfDay] // Hanya data yang dibuat hari ini
-//                 }
-//             },
-//             order: [
-//                 ["antrian", "DESC"]
-//             ],
-//             lock: transaction.LOCK.UPDATE,
-//             transaction,
-//             attributes: ["antrian"]
-//         });
-
-//         let lastNumber = 0;
-//         if (lastPengunjung && lastPengunjung.antrian) {
-//             const lastAntrian = lastPengunjung.antrian;
-//             if (typeof lastAntrian === "string" && lastAntrian.includes("-")) {
-//                 const lastNumberStr = lastAntrian.split("-")[1];
-//                 lastNumber = parseInt(lastNumberStr, 10);
-//             }
-//         }
-
-//         // Generate nomor antrian baru dengan penambahan 1
-//         const newAntrianNumber = lastNumber + 1;
-//         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, "0")}`;
-
-//         // Update nomor antrian pengunjung
-//         await pengunjung.update({ antrian: newAntrian }, { transaction });
-
-//         await transaction.commit();
-
-//         return res.send({
-//             message: "Antrian berhasil diupdate",
-//             data: {...pengunjung.toJSON(), antrian: newAntrian }
-//         });
-
-//     } catch (error) {
-//         await transaction.rollback();
-//         console.error("Error:", error.message);
-//         return res.status(500).send({ message: "Internal Server Error" });
-//     }
-// };
-
-// const updateAntrian = async(req, res) => {
-//     const transaction = await sequelize.transaction();
 //     try {
 //         const { id } = req.body;
 
-//         console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaantrian", req.body)
 //         if (!id) {
 //             await transaction.rollback();
 //             return res.status(400).send({ message: "Kode harus disertakan dalam request body", data: null });
@@ -1358,19 +1184,14 @@ const updateDataPengunjung = async(req, res, _next) => {
 //             return res.status(404).send({ message: "Pengunjung tidak ditemukan", data: null });
 //         }
 
-//         // Waktu dan zona waktu Makassar
+
 //         const timeZone = 'Asia/Makassar';
 //         const now = new Date();
 //         const zonedDate = toZonedTime(now, timeZone);
-
 //         const dateString = format(zonedDate, 'yyyyMMdd');
 //         const startOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T00:00:00+08:00');
 //         const endOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T23:59:59.999+08:00');
 
-//         // query menggunakan dateString dan range startOfDay, endOfDay
-
-
-//         // Cari nomor antrian terbesar hari ini
 //         const lastPengunjung = await PengunjungModel.findOne({
 //             where: {
 //                 antrian: {
@@ -1397,17 +1218,23 @@ const updateDataPengunjung = async(req, res, _next) => {
 //             }
 //         }
 
-//         // Generate nomor antrian baru dengan penambahan 1
 //         const newAntrianNumber = lastNumber + 1;
 //         const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
 
-//         // Update nomor antrian
 //         await pengunjung.update({ antrian: newAntrian }, { transaction });
-
 //         await transaction.commit();
 
+//         // // 🖨️ Cetak tiket otomatis setelah update berhasil
+//         // printTicket({
+//         //     antrian: newAntrian,
+//         //     nama: pengunjung.nama,
+//         //     barcode: pengunjung.barcode,
+//         //     kode: pengunjung.kode,
+//         //     tanggal: format(zonedDate, 'dd-MM-yyyy'),
+//         // });
+
 //         return res.send({
-//             message: "Antrian berhasil diupdate",
+//             message: "Antrian berhasil diupdate & dicetak otomatis",
 //             data: {...pengunjung.toJSON(), antrian: newAntrian }
 //         });
 
@@ -1434,18 +1261,28 @@ const updateAntrian = async(req, res) => {
             return res.status(404).send({ message: "Pengunjung tidak ditemukan", data: null });
         }
 
-
+        // Waktu dan zona waktu Makassar
         const timeZone = 'Asia/Makassar';
         const now = new Date();
         const zonedDate = toZonedTime(now, timeZone);
+
+        // Format tanggal
         const dateString = format(zonedDate, 'yyyyMMdd');
+
+        // Tentukan sesi berdasarkan waktu
+        const hour = parseInt(format(zonedDate, 'HH', { timeZone: timeZone }), 10);
+        const isSesiPagi = hour >= 0 && hour < 12;
+        const sesiPrefix = isSesiPagi ? '' : 'A';
+
+        // Filter batas waktu untuk hari ini
         const startOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T00:00:00+08:00');
         const endOfDay = new Date(format(zonedDate, 'yyyy-MM-dd') + 'T23:59:59.999+08:00');
 
+        // Cari nomor antrian terbesar untuk sesi yang sama hari ini
         const lastPengunjung = await PengunjungModel.findOne({
             where: {
                 antrian: {
-                    [Sequelize.Op.like]: `${dateString}-%`
+                    [Sequelize.Op.like]: `${dateString}-${sesiPrefix}%`
                 },
                 createdAt: {
                     [Sequelize.Op.between]: [startOfDay, endOfDay]
@@ -1463,29 +1300,37 @@ const updateAntrian = async(req, res) => {
         if (lastPengunjung && lastPengunjung.antrian) {
             const lastAntrian = lastPengunjung.antrian;
             if (typeof lastAntrian === 'string' && lastAntrian.includes('-')) {
-                const lastNumberStr = lastAntrian.split('-')[1];
-                lastNumber = parseInt(lastNumberStr, 10);
+                const numberPart = lastAntrian.split('-')[1];
+                // Hapus prefix 'A' jika ada untuk mendapatkan angka murni
+                const pureNumber = numberPart.replace('A', '');
+                lastNumber = parseInt(pureNumber, 10);
             }
         }
 
+        // Generate nomor antrian baru
         const newAntrianNumber = lastNumber + 1;
-        const newAntrian = `${dateString}-${newAntrianNumber.toString().padStart(3, '0')}`;
+        const newAntrian = `${dateString}-${sesiPrefix}${newAntrianNumber.toString().padStart(3, '0')}`;
 
         await pengunjung.update({ antrian: newAntrian }, { transaction });
         await transaction.commit();
 
-        // // 🖨️ Cetak tiket otomatis setelah update berhasil
+        // Cetak tiket otomatis setelah update berhasil
         // printTicket({
         //     antrian: newAntrian,
         //     nama: pengunjung.nama,
         //     barcode: pengunjung.barcode,
         //     kode: pengunjung.kode,
         //     tanggal: format(zonedDate, 'dd-MM-yyyy'),
+        //     sesi: isSesiPagi ? "PAGI" : "SIANG"
         // });
 
         return res.send({
             message: "Antrian berhasil diupdate & dicetak otomatis",
-            data: {...pengunjung.toJSON(), antrian: newAntrian }
+            data: {
+                ...pengunjung.toJSON(),
+                antrian: newAntrian,
+                sesi: isSesiPagi ? "pagi" : "siang"
+            }
         });
 
     } catch (error) {
@@ -1494,8 +1339,6 @@ const updateAntrian = async(req, res) => {
         return res.status(500).send({ message: "Internal Server Error" });
     }
 };
-
-
 
 
 const listStruk = async(req, res) => {

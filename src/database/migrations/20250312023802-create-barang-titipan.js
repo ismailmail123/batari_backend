@@ -15,6 +15,9 @@ module.exports = {
             pengunjung_id: {
                 type: Sequelize.INTEGER
             },
+            wbp_id: {
+                type: Sequelize.INTEGER
+            },
             jenis_barang: {
                 type: Sequelize.STRING
             },

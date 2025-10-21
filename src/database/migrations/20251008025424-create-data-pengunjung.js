@@ -12,6 +12,9 @@ module.exports = {
             user_id: {
                 type: Sequelize.INTEGER
             },
+            wbp_id: {
+                type: Sequelize.INTEGER
+            },
             nama: {
                 type: Sequelize.STRING
             },

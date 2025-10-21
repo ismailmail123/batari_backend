@@ -151,6 +151,9 @@ const index = async(req, res, _next) => {
             include: [{
                     model: UserModel,
                     as: "user",
+                }, {
+                    model: WargaBinaanModel,
+                    as: "barang_titipan_wbp",
                 },
                 {
                     model: PengunjungModel,
@@ -185,13 +188,18 @@ const show = async(req, res, next) => {
 
         const barang_titipans = await BarangTitipanModel.findByPk(id, {
             include: [{
-                model: PengunjungModel,
-                as: "pengunjung",
-                include: [{
+                    model: PengunjungModel,
+                    as: "pengunjung",
+                    include: [{
+                        model: WargaBinaanModel,
+                        as: "warga_binaan"
+                    }]
+                },
+                {
                     model: WargaBinaanModel,
                     as: "warga_binaan"
-                }]
-            }]
+                }
+            ]
         });
 
         if (!barang_titipans) {
@@ -215,7 +223,7 @@ const show = async(req, res, next) => {
 const create = async(req, res, _next) => {
     try {
         // Ambil data dari request body
-        const { pengunjung_id, jenis_barang, jumlah, keterangan } = req.body;
+        const { pengunjung_id, wbp_id, jenis_barang, jumlah, keterangan } = req.body;
 
         // Validasi data yang diperlukan
         if (!pengunjung_id || !jenis_barang || !jumlah) {
@@ -243,6 +251,7 @@ const create = async(req, res, _next) => {
         // Buat barang titipan baru
         const newBarangTitipan = await BarangTitipanModel.create({
             user_id: req.user.id, // Ambil user_id dari user yang sedang login
+            wbp_id: wbp_id || null,
             pengunjung_id,
             jenis_barang,
             jumlah,

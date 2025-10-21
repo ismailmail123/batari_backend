@@ -381,7 +381,12 @@ const show = async(req, res, next) => {
                 {
                     model: BarangTitipanModel,
                     as: "barang_titipan",
-                }
+                    include: [{
+                        model: WbpModel,
+                        as: "warga_binaan",
+                    }]
+                },
+
             ],
         });
 

@@ -23,6 +23,10 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: "user_id",
                 as: "user"
             })
+            warga_binaan.hasOne(models.barang_titipan, {
+                foreignKey: "wbp_id",
+                as: "warga_binaan"
+            })
         }
     }
     warga_binaan.init({

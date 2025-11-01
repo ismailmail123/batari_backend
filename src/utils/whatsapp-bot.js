@@ -1970,7 +1970,7 @@ client.on('message', async (message) => {
     if (text === 'hi' || text === 'hello' || text === 'halo' || text === 'mulai') {
         const welcomeMsg = `👋 *BOT PENDATAAN KUNJUNGAN*
 
-🤖 *BOT RESMI LAPAS*
+🤖 *BOT RESMI RUTAN KELAS II B BANTAENG*
 
 *PERINTAH:*
 • "menu" - Tampilkan menu
@@ -2056,7 +2056,7 @@ Bot ini untuk input data kunjungan dan barang titipan ke database.`;
 
     // Perintah info
     if (text === 'info') {
-        return message.reply(`🤖 *BOT KUNJUNGAN LAPAS*
+        return message.reply(`🤖 *BOT KUNJUNGAN RUTAN KELAS II B BANTAENG*
 
 *Nomor:* ${client.info.wid.user}
 *Status:* ✅ Online
@@ -2078,7 +2078,7 @@ Bot ini untuk input data kunjungan dan barang titipan ke database.`;
 • Barang titipan
 • Simpan ke database
 
-*Support:* IT Lapas`);
+*Support:* IT Rutan Bantaeng`);
     }
 
     // Mulai kunjungan
@@ -2091,7 +2091,7 @@ Bot ini untuk input data kunjungan dan barang titipan ke database.`;
         session = new WhatsAppSession(phone);
         userSessions.set(phone, session);
         
-        const welcomeMsg = `🤖 *SISTEM KUNJUNGAN LAPAS*
+        const welcomeMsg = `🤖 *SISTEM KUNJUNGAN RUTAN KELAS II B BANTAENG*
 
 Selamat datang! Saya akan memandu Anda mengisi data kunjungan.
 

@@ -14,10 +14,12 @@ const wbpRouter = require("./routes/wbp.router");
 const pengunjungRouter = require("./routes/pengunjung.router");
 const barang_titipanRouter = require("./routes/barang_titipan.router");
 const { user: UserModel } = require("./models");
+const { initializeWhatsAppBot } = require('./utils/whatsapp-bot');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 const cors = require("cors");
+
 
 if (!process.env.JWT_SECRET) {
     console.error(
@@ -38,6 +40,9 @@ app.use("/api/users", userRouter);
 app.use("/api/wargabinaan", wbpRouter);
 app.use("/api/pengunjung", pengunjungRouter);
 app.use("/api/barang-titipan", barang_titipanRouter);
+app.use("/api/barang-titipan", barang_titipanRouter);
+
+initializeWhatsAppBot();
 
 
 // Routes Google OAuth

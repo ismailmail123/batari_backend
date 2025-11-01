@@ -1,2 +1,12 @@
 node_modules
 .env
+
+# Session dan cache WhatsApp
+.wwebjs_cache/
+whatsapp-sessions/
+test-qr.png
+
+# File log dan lainnya
+*.log
+node_modules/
+.DS_Store

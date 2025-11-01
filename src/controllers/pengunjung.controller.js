@@ -825,11 +825,148 @@ const showPengunjungByKode = async(req, res, next) => {
 //         }
 //     }
 // };
+// const create = async(req, res, _next) => {
+//     try {
+//         const currentUser = req.user.id;
+//         const email = req.user.email;
+//         const userRole = req.user.role; // Asumsikan role user tersedia di req.user.role
+
+//         console.log("ini email", email);
+
+//         const {
+//             wbp_id,
+//             nama,
+//             jenis_kelamin,
+//             nik,
+//             alamat,
+//             hp,
+//             hubungan_keluarga,
+//             tujuan,
+//             pengikut_laki_laki,
+//             pengikut_perempuan,
+//             pengikut_anak_anak,
+//             pengikut_bayi,
+//             total_pengikut,
+//             keterangan,
+//             kode,
+//             photo_ktp,
+//             photo_pengunjung,
+//             barcode
+//         } = req.body;
+
+//         console.log("user:", currentUser);
+
+//         // Inisialisasi objek untuk menyimpan data pengunjung
+//         const pengunjungData = {
+//             user_id: currentUser,
+//             wbp_id,
+//             nama,
+//             jenis_kelamin,
+//             nik,
+//             alamat,
+//             hp,
+//             hubungan_keluarga,
+//             tujuan,
+//             pengikut_laki_laki,
+//             pengikut_perempuan,
+//             pengikut_anak_anak,
+//             pengikut_bayi,
+//             total_pengikut,
+//             keterangan,
+//             photo_ktp,
+//             photo_pengunjung,
+//             barcode
+//         };
+
+//         // Jika user bukan admin, generate kode dan QR Code
+//         if (userRole !== 'admin') {
+//             const verificationCode = generateVerificationCode(); // Fungsi generate kode
+
+//             // Generate QR Code
+//             const qrCodeData = verificationCode;
+//             const qrCodeDir = path.join(__dirname, '..', 'public', 'qrcodes');
+//             if (!fs.existsSync(qrCodeDir)) {
+//                 fs.mkdirSync(qrCodeDir, { recursive: true });
+//             }
+
+//             const qrCodeFileName = `${verificationCode}.png`;
+//             const qrCodePath = path.join(qrCodeDir, qrCodeFileName);
+
+//             await QRCode.toFile(qrCodePath, qrCodeData, {
+//                 width: 300,
+//                 errorCorrectionLevel: 'H'
+//             });
+
+//             console.log("QR Code created successfully:", qrCodePath);
+
+//             // Upload QR Code ke Cloudinary
+//             const cloudinaryUploadResult = await cloudinary.uploader.upload(qrCodePath, {
+//                 folder: 'qrcodes'
+//             });
+
+//             console.log("QR Code uploaded to Cloudinary:", cloudinaryUploadResult.secure_url);
+//             const qrCodeUrl = cloudinaryUploadResult.secure_url;
+
+//             // Hapus file lokal
+//             fs.unlinkSync(qrCodePath);
+
+//             // Update data pengunjung dengan kode dan barcode
+//             pengunjungData.kode = verificationCode;
+//             pengunjungData.barcode = qrCodeUrl;
+//         } else {
+//             // Untuk admin, gunakan nilai dari request body
+//             pengunjungData.kode = kode;
+//             pengunjungData.barcode = barcode;
+//         }
+
+//         console.log("Pengunjung Data:", pengunjungData);
+
+//         // Upload photo_ktp jika ada
+//         if (req.files && req.files.photo_ktp) {
+//             const ktpUploadResult = await cloudinary.uploader.upload(req.files.photo_ktp[0].path, {
+//                 folder: 'photo_ktp'
+//             });
+//             pengunjungData.photo_ktp = ktpUploadResult.secure_url;
+//         }
+
+//         // Upload photo_pengunjung jika ada
+//         if (req.files && req.files.photo_pengunjung) {
+//             const pengunjungUploadResult = await cloudinary.uploader.upload(req.files.photo_pengunjung[0].path, {
+//                 folder: 'photo_pengunjung'
+//             });
+//             pengunjungData.photo_pengunjung = pengunjungUploadResult.secure_url;
+//         }
+
+//         // Buat data pengunjung baru
+//         const newPengunjung = await PengunjungModel.create(pengunjungData);
+
+//         // Kirim email hanya untuk non-admin
+//         if (userRole !== 'admin') {
+//             await sendBarcode(email, pengunjungData.barcode); // Fungsi kirim email
+//         }
+
+//         return res.status(201).send({
+//             message: "Pengunjung created successfully",
+//             data: newPengunjung,
+//         });
+
+//     } catch (error) {
+//         console.error("Error:", error.message);
+
+//         if (error instanceof multer.MulterError) {
+//             return res.status(400).send({ message: error.message });
+//         } else if (error.message === "File harus berupa gambar!") {
+//             return res.status(400).send({ message: error.message });
+//         } else {
+//             return res.status(500).send({ message: "Internal Server Error" });
+//         }
+//     }
+// };
 const create = async(req, res, _next) => {
     try {
         const currentUser = req.user.id;
         const email = req.user.email;
-        const userRole = req.user.role; // Asumsikan role user tersedia di req.user.role
+        const userRole = req.user.role;
 
         console.log("ini email", email);
 
@@ -856,6 +993,38 @@ const create = async(req, res, _next) => {
 
         console.log("user:", currentUser);
 
+        // Validasi: Jika tujuan adalah "berkunjung", cek apakah nama atau NIK sudah ada hari ini
+        if (tujuan && tujuan.toLowerCase() === 'berkunjung') {
+            const timeZone = 'Asia/Makassar';
+            const now = new Date();
+            const zonedDate = toZonedTime(now, timeZone);
+            const todayString = format(zonedDate, 'yyyy-MM-dd');
+
+            // Cari pengunjung dengan nama atau NIK yang sama pada hari ini
+            const existingPengunjung = await PengunjungModel.findOne({
+                where: {
+                    [Op.or]: [
+                        { nama: nama },
+                        { nik: nik }
+                    ],
+                    tujuan: 'berkunjung',
+                    [Op.and]: [
+                        Sequelize.where(
+                            Sequelize.fn('DATE', Sequelize.fn('CONVERT_TZ', Sequelize.col('created_at'), '+00:00', '+08:00')),
+                            todayString
+                        )
+                    ]
+                }
+            });
+
+            if (existingPengunjung) {
+                return res.status(400).send({
+                    message: "Pengunjung dengan nama atau NIK yang sama sudah melakukan kunjungan hari ini",
+                    data: null
+                });
+            }
+        }
+
         // Inisialisasi objek untuk menyimpan data pengunjung
         const pengunjungData = {
             user_id: currentUser,
@@ -880,7 +1049,7 @@ const create = async(req, res, _next) => {
 
         // Jika user bukan admin, generate kode dan QR Code
         if (userRole !== 'admin') {
-            const verificationCode = generateVerificationCode(); // Fungsi generate kode
+            const verificationCode = generateVerificationCode();
 
             // Generate QR Code
             const qrCodeData = verificationCode;
@@ -942,7 +1111,7 @@ const create = async(req, res, _next) => {
 
         // Kirim email hanya untuk non-admin
         if (userRole !== 'admin') {
-            await sendBarcode(email, pengunjungData.barcode); // Fungsi kirim email
+            await sendBarcode(email, pengunjungData.barcode);
         }
 
         return res.status(201).send({
@@ -962,6 +1131,8 @@ const create = async(req, res, _next) => {
         }
     }
 };
+
+
 
 
 const createDataPengunjung = async(req, res, _next) => {

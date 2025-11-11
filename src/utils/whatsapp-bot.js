@@ -1221,9 +1221,68 @@ const client = new Client({
             '--no-first-run',
             '--no-zygote',
             '--single-process',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-features=VizDisplayCompositor', // TAMBAHIN
+            '--disable-background-timer-throttling', // TAMBAHIN
+            '--disable-backgrounding-occluded-windows', // TAMBAHIN
+            '--disable-renderer-backgrounding', // TAMBAHIN
+            '--max-old-space-size=1024' // TAMBAHIN
         ]
+    },
+    webVersionCache: { // TAMBAHIN seluruh block ini
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
     }
+});
+
+
+// TAMBAHKAN fungsi ini SETELAH deklarasi client
+async function initializeWithRetry(maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`🔄 Initialization attempt ${attempt}/${maxRetries}`);
+            await client.initialize();
+            console.log('✅ WhatsApp client initialized successfully');
+            return;
+        } catch (error) {
+            console.error(`❌ Attempt ${attempt} failed:`, error.message);
+
+            if (attempt === maxRetries) {
+                console.error('💥 Max retries reached');
+                throw error;
+            }
+
+            // Tunggu sebelum retry
+            const waitTime = 5000 * attempt;
+            console.log(`⏳ Retrying in ${waitTime/1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+    }
+}
+
+// GANTI client.initialize() dengan:
+initializeWithRetry().catch(error => {
+    console.error('💥 Failed to initialize after all retries:', error);
+});
+
+
+// TAMBAHKAN event handlers untuk stability
+client.on('auth_failure', msg => {
+    console.error('❌ Auth failure:', msg);
+    // Auto restart pada auth failure
+    setTimeout(() => {
+        console.log('🔄 Restarting client after auth failure...');
+        initializeWithRetry();
+    }, 5000);
+});
+
+client.on('disconnected', (reason) => {
+    console.log('❌ Client disconnected:', reason);
+    // Auto reconnect
+    console.log('🔄 Attempting to reconnect...');
+    setTimeout(() => {
+        initializeWithRetry();
+    }, 5000);
 });
 
 // FUNGSI BARU: Validasi waktu operasional pendaftaran

@@ -2477,5 +2477,5 @@ module.exports = {
     generateQRCode,
     generateAntrian,
     validateDailyKunjungan,
-    isWithinOperatingHours // Export fungsi baru
+    isWithinOperatingHours
 };

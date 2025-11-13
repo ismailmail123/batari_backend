@@ -157,8 +157,115 @@ const create = async(req, res, _next) => {
     }
 };
 
+/**
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} _next
+ */
+const update = async(req, res, _next) => {
+    try {
+        const { id } = req.params;
+        const { pengunjung_id, wbp_id, jenis_barang, jumlah, keterangan } = req.body;
+
+        // Cari barang titipan berdasarkan ID dan user_id
+        const barangTitipan = await BarangTitipanModel.findOne({
+            where: {
+                id,
+                user_id: req.user.id // Pastikan hanya pemilik yang bisa update
+            }
+        });
+
+        if (!barangTitipan) {
+            return res.status(404).send({
+                message: "Barang titipan tidak ditemukan",
+                data: null
+            });
+        }
+
+        // Validasi data yang akan diupdate
+        if (!pengunjung_id || !jenis_barang || !jumlah) {
+            return res.status(400).send({
+                message: "Data tidak lengkap. Pastikan pengunjung_id, jenis_barang, dan jumlah diisi.",
+            });
+        }
+
+        // Update data
+        await BarangTitipanModel.update({
+            pengunjung_id,
+            wbp_id: wbp_id || null,
+            jenis_barang,
+            jumlah,
+            keterangan: keterangan || null,
+        }, {
+            where: { id }
+        });
+
+        // Ambil data terbaru setelah update
+        const updatedBarangTitipan = await BarangTitipanModel.findByPk(id, {
+            include: [{
+                model: PengunjungModel,
+                as: "pengunjung",
+                include: [{
+                    model: WargaBinaanModel,
+                    as: "warga_binaan"
+                }]
+            }]
+        });
+
+        return res.send({
+            message: "Barang titipan berhasil diupdate",
+            data: updatedBarangTitipan,
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
+
+/**
+ * @param {import("express").Request} req
+ * @param {import("express").Response} res
+ * @param {import("express").NextFunction} _next
+ */
+const remove = async(req, res, _next) => {
+    try {
+        const { id } = req.params;
+
+        // Cari dan hapus barang titipan berdasarkan ID dan user_id
+        const deletedBarangTitipan = await BarangTitipanModel.findOne({
+            where: {
+                id,
+                user_id: req.user.id // Pastikan hanya pemilik yang bisa hapus
+            }
+        });
+
+        if (!deletedBarangTitipan) {
+            return res.status(404).send({
+                message: "Barang titipan tidak ditemukan",
+                data: null
+            });
+        }
+
+        await BarangTitipanModel.destroy({
+            where: { id }
+        });
+
+        return res.send({
+            message: "Barang titipan berhasil dihapus",
+            data: deletedBarangTitipan,
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
+
 module.exports = {
     index,
     show,
-    create
+    create,
+    update,
+    remove,
 };

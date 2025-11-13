@@ -9,7 +9,7 @@ const upload = multer({ storage: storage });
 
 
 
-const { index, getPengunjung, indexUser, show, showByKode, showPengunjungData, showPengunjungByKode, create, createDataPengunjung, update, updateDataPengunjung, verifyCode, updateAntrian, getLastAntrian, listStruk, cetakLabelTitipan } = require("../controllers/pengunjung.controller.js");
+const { index, getPengunjung, indexUser, show, showByKode, searchAllPengunjung, showPengunjungData, showPengunjungByKode, create, createFromExisting, createDataPengunjung, update, updateDataPengunjung, verifyCode, updateAntrian, getLastAntrian, listStruk, cetakLabelTitipan } = require("../controllers/pengunjung.controller.js");
 const { validateToken } = require("../middlewares/auth.js")
 
 // /api/babs
@@ -19,6 +19,7 @@ router.get("/struk", listStruk);
 router.get("/user", validateToken, indexUser);
 router.post("/cetak-label", cetakLabelTitipan);
 router.get("/antrian-terakhir", validateToken, getLastAntrian);
+router.get('/search-all', validateToken, searchAllPengunjung);
 router.get("/bykode/:kode", validateToken, showByKode);
 router.get("/:id", validateToken, show);
 // router.get("/:kode", validateToken, showByKode);
@@ -37,6 +38,15 @@ router.post("/pengunjung-data", validateToken,
         { name: "photo_pengunjung", maxCount: 1 }, // Field untuk foto bukti penerimaan
     ]),
     createDataPengunjung);
+router.post(
+    '/create-from-existing',
+    validateToken,
+    upload.fields([
+        { name: 'photo_ktp', maxCount: 1 },
+        { name: 'photo_pengunjung', maxCount: 1 }
+    ]),
+    createFromExisting
+);
 router.put("/:id", validateToken,
     upload.fields([
         { name: "photo_ktp", maxCount: 1 }, // Field untuk foto struk pembelian

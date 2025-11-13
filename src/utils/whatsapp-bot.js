@@ -1206,10 +1206,27 @@ const { format, toZonedTime } = require('date-fns-tz');
 const userSessions = new Map();
 
 // WhatsApp Client dengan session permanen
+// const client = new Client({
+//     authStrategy: new LocalAuth({
+//         clientId: "session-kunjungan-bot-v2" // GANTI NAMA SESSION
+//     }),
+//     puppeteer: {
+//         headless: true,
+//         args: [
+//             '--no-sandbox',
+//             '--disable-setuid-sandbox',
+//             '--disable-dev-shm-usage',
+//             '--disable-accelerated-2d-canvas',
+//             '--no-first-run',
+//             '--no-zygote',
+//             '--disable-gpu'
+//         ]
+//     }
+// });
+
 const client = new Client({
     authStrategy: new LocalAuth({
-        clientId: "kunjungan-bot",
-        dataPath: "./whatsapp-sessions"
+        clientId: "session-bot-new-v1"
     }),
     puppeteer: {
         headless: true,
@@ -1220,11 +1237,58 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ]
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-features=site-per-process',
+            '--disable-background-timer-throttling',
+            '--disable-renderer-backgrounding',
+            '--no-default-browser-check',
+            '--disable-extensions',
+            '--disable-default-apps',
+            '--log-level=3', // Nonaktifkan logging verbose
+            '--silent'
+        ],
+        ignoreHTTPSErrors: true,
+        slowMo: 10,
+        // Tambahkan konfigurasi untuk handle file locks
+        handleSIGINT: false,
+        handleSIGTERM: false,
+        handleSIGHUP: false
+    },
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
     }
 });
+
+// Tambahkan cleanup handler
+process.on('SIGINT', async() => {
+    console.log('🔄 Menutup client dengan aman...');
+    try {
+        await client.destroy();
+        console.log('✅ Client ditutup dengan aman');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error saat menutup client:', error);
+        process.exit(1);
+    }
+});
+
+process.on('SIGTERM', async() => {
+    console.log('🔄 Menutup client dengan aman...');
+    try {
+        await client.destroy();
+        console.log('✅ Client ditutup dengan aman');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error saat menutup client:', error);
+        process.exit(1);
+    }
+});
+
+
+
+
 
 // FUNGSI BARU: Validasi waktu operasional pendaftaran
 const isWithinOperatingHours = () => {
@@ -2464,15 +2528,53 @@ ${session.getCurrentQuestion()}`;
 
 // Fungsi untuk initialize bot
 function initializeWhatsAppBot() {
-    client.initialize();
+    // client.initialize();
+// Handle initialization dengan retry
+let initializationAttempts = 0;
+const maxInitializationAttempts = 5;
+
+async function initializeClient() {
+    try {
+        await client.initialize();
+        console.log('✅ Client initialized successfully');
+    } catch (error) {
+        console.error(`❌ Initialization attempt ${initializationAttempts + 1} failed:`, error.message);
+
+        initializationAttempts++;
+        if (initializationAttempts < maxInitializationAttempts) {
+            console.log(`🔄 Retrying in 3 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            await initializeClient();
+        } else {
+            console.log('❌ Max initialization attempts reached');
+            process.exit(1);
+        }
+    }
+}
+
+client.on('qr', (qr) => {
+    console.log('📱 QR Code received, please scan!');
+});
+
+client.on('ready', () => {
+    console.log('✅ WhatsApp client is ready!');
+    initializationAttempts = 0; // Reset counter
+});
+
+client.on('auth_failure', (msg) => {
+    console.error('❌ Auth failure:', msg);
+});
+
+// Start initialization
+initializeClient();
     return client;
 }
 
 // Export untuk digunakan di file lain
 module.exports = {
     initializeWhatsAppBot,
-    client,
-    userSessions,
+    // client,
+    // userSessions,
     searchPengunjungByKode,
     generateQRCode,
     generateAntrian,

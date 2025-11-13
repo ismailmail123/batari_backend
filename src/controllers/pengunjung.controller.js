@@ -968,7 +968,7 @@ const create = async(req, res, _next) => {
         const email = req.user.email;
         const userRole = req.user.role;
 
-        console.log("ini email", email);
+
 
         const {
             wbp_id,
@@ -991,7 +991,6 @@ const create = async(req, res, _next) => {
             barcode
         } = req.body;
 
-        console.log("user:", currentUser);
 
         // Validasi: Jika tujuan adalah "berkunjung", cek apakah nama atau NIK sudah ada hari ini
         if (tujuan && tujuan.toLowerCase() === 'berkunjung') {
@@ -1066,14 +1065,14 @@ const create = async(req, res, _next) => {
                 errorCorrectionLevel: 'H'
             });
 
-            console.log("QR Code created successfully:", qrCodePath);
+
 
             // Upload QR Code ke Cloudinary
             const cloudinaryUploadResult = await cloudinary.uploader.upload(qrCodePath, {
                 folder: 'qrcodes'
             });
 
-            console.log("QR Code uploaded to Cloudinary:", cloudinaryUploadResult.secure_url);
+
             const qrCodeUrl = cloudinaryUploadResult.secure_url;
 
             // Hapus file lokal
@@ -1088,7 +1087,6 @@ const create = async(req, res, _next) => {
             pengunjungData.barcode = barcode;
         }
 
-        console.log("Pengunjung Data:", pengunjungData);
 
         // Upload photo_ktp jika ada
         if (req.files && req.files.photo_ktp) {
@@ -1121,6 +1119,280 @@ const create = async(req, res, _next) => {
 
     } catch (error) {
         console.error("Error:", error.message);
+
+        if (error instanceof multer.MulterError) {
+            return res.status(400).send({ message: error.message });
+        } else if (error.message === "File harus berupa gambar!") {
+            return res.status(400).send({ message: error.message });
+        } else {
+            return res.status(500).send({ message: "Internal Server Error" });
+        }
+    }
+};
+
+const createFromExisting = async(req, res, _next) => {
+    try {
+        const currentUser = req.user.id;
+        const email = req.user.email;
+        const userRole = req.user.role;
+
+
+        // Di backend, pastikan menerima field-field tambahan
+        const {
+            source_type,
+            source_value,
+            tujuan,
+            nama,
+            nik,
+            alamat,
+            hp,
+            hubungan_keluarga,
+            keterangan,
+            kode,
+            barcode,
+            // Tambahkan field-field berikut
+            pengikut_laki_laki,
+            pengikut_perempuan,
+            pengikut_anak_anak,
+            pengikut_bayi,
+            total_pengikut
+        } = req.body;
+
+
+
+        // Validasi parameter
+        if (!source_type || !source_value) {
+            return res.status(400).send({
+                message: "source_type dan source_value harus disertakan",
+                data: null
+            });
+        }
+
+        // Cari pengunjung berdasarkan source_type
+        let whereCondition = {};
+        switch (source_type) {
+            case 'id':
+                whereCondition = { id: source_value };
+                break;
+            case 'kode':
+                whereCondition = { kode: source_value };
+                break;
+            case 'nama':
+                whereCondition = { nama: source_value };
+                break;
+            default:
+                return res.status(400).send({
+                    message: "source_type harus berupa 'id', 'kode', atau 'nama'",
+                    data: null
+                });
+        }
+
+        // Cari data pengunjung existing
+        const existingPengunjung = await PengunjungModel.findOne({
+            where: whereCondition,
+            include: [{
+                    model: WbpModel,
+                    as: "warga_binaan",
+                },
+                {
+                    model: BarangTitipanModel,
+                    as: "barang_titipan",
+                }
+            ],
+            order: [
+                ['createdAt', 'DESC']
+            ]
+        });
+
+        if (!existingPengunjung) {
+            return res.status(404).send({
+                message: `Pengunjung dengan ${source_type} '${source_value}' tidak ditemukan`,
+                data: null
+            });
+        }
+
+        console.log("Data existing ditemukan:", existingPengunjung.nama);
+
+        // Validasi: Jika tujuan adalah "berkunjung", cek apakah sudah ada kunjungan hari ini
+        if (tujuan && tujuan.toLowerCase() === 'berkunjung') {
+            const timeZone = 'Asia/Makassar';
+            const now = new Date();
+            const zonedDate = toZonedTime(now, timeZone);
+            const todayString = format(zonedDate, 'yyyy-MM-dd');
+
+            // Cari pengunjung dengan nama atau NIK yang sama pada hari ini
+            const existingToday = await PengunjungModel.findOne({
+                where: {
+                    [Op.or]: [
+                        { nama: existingPengunjung.nama },
+                        { nik: existingPengunjung.nik }
+                    ],
+                    tujuan: 'berkunjung',
+                    [Op.and]: [
+                        Sequelize.where(
+                            Sequelize.fn('DATE', Sequelize.fn('CONVERT_TZ', Sequelize.col('created_at'), '+00:00', '+08:00')),
+                            todayString
+                        )
+                    ]
+                }
+            });
+
+            // if (existingToday) {
+            //     return res.status(400).send({
+            //         message: "Pengunjung dengan nama atau NIK yang sama sudah melakukan kunjungan hari ini",
+            //         data: null
+            //     });
+            // }
+        }
+
+        // Inisialisasi objek untuk menyimpan data pengunjung baru
+        // Kemudian gunakan dalam pembuatan data baru
+        const pengunjungData = {
+            user_id: currentUser,
+            wbp_id: existingPengunjung.wbp_id,
+            nama: nama || existingPengunjung.nama,
+            jenis_kelamin: existingPengunjung.jenis_kelamin,
+            nik: nik || existingPengunjung.nik,
+            alamat: alamat || existingPengunjung.alamat,
+            hp: hp || existingPengunjung.hp,
+            hubungan_keluarga: hubungan_keluarga || existingPengunjung.hubungan_keluarga,
+            tujuan: tujuan || existingPengunjung.tujuan || "Berkunjung",
+            // Gunakan data yang dikirim atau data existing
+            pengikut_laki_laki: pengikut_laki_laki || existingPengunjung.pengikut_laki_laki || 0,
+            pengikut_perempuan: pengikut_perempuan || existingPengunjung.pengikut_perempuan || 0,
+            pengikut_anak_anak: pengikut_anak_anak || existingPengunjung.pengikut_anak_anak || 0,
+            pengikut_bayi: pengikut_bayi || existingPengunjung.pengikut_bayi || 0,
+            total_pengikut: total_pengikut || existingPengunjung.total_pengikut || 0,
+            keterangan: keterangan || existingPengunjung.keterangan,
+            photo_ktp: existingPengunjung.photo_ktp,
+            photo_pengunjung: existingPengunjung.photo_pengunjung,
+        };
+
+        console.log("ddddddddddddddddddddddddddddddddddddddddddddddddddddddddata existing pengunjung", pengunjungData)
+            // Jika user bukan admin, generate kode dan QR Code baru
+        if (userRole !== 'admin') {
+            const verificationCode = generateVerificationCode();
+
+            // Generate QR Code
+            const qrCodeData = verificationCode;
+            const qrCodeDir = path.join(__dirname, '..', 'public', 'qrcodes');
+            if (!fs.existsSync(qrCodeDir)) {
+                fs.mkdirSync(qrCodeDir, { recursive: true });
+            }
+
+            const qrCodeFileName = `${verificationCode}.png`;
+            const qrCodePath = path.join(qrCodeDir, qrCodeFileName);
+
+            await QRCode.toFile(qrCodePath, qrCodeData, {
+                width: 300,
+                errorCorrectionLevel: 'H'
+            });
+
+            console.log("QR Code baru created successfully:", qrCodePath);
+
+            // Upload QR Code ke Cloudinary
+            const cloudinaryUploadResult = await cloudinary.uploader.upload(qrCodePath, {
+                folder: 'qrcodes'
+            });
+
+            console.log("QR Code baru uploaded to Cloudinary:", cloudinaryUploadResult.secure_url);
+            const qrCodeUrl = cloudinaryUploadResult.secure_url;
+
+            // Hapus file lokal
+            fs.unlinkSync(qrCodePath);
+
+            // Update data pengunjung dengan kode dan barcode baru
+            pengunjungData.kode = verificationCode;
+            pengunjungData.barcode = qrCodeUrl;
+        } else {
+            // Untuk admin, gunakan nilai dari request body atau generate baru
+            if (kode) {
+                pengunjungData.kode = kode;
+            } else {
+                const verificationCode = generateVerificationCode();
+                pengunjungData.kode = verificationCode;
+            }
+
+            if (barcode) {
+                pengunjungData.barcode = barcode;
+            } else {
+                // Generate barcode baru untuk admin juga jika tidak disediakan
+                const verificationCode = pengunjungData.kode;
+                const qrCodeData = verificationCode;
+                const qrCodeDir = path.join(__dirname, '..', 'public', 'qrcodes');
+                if (!fs.existsSync(qrCodeDir)) {
+                    fs.mkdirSync(qrCodeDir, { recursive: true });
+                }
+
+                const qrCodeFileName = `${verificationCode}.png`;
+                const qrCodePath = path.join(qrCodeDir, qrCodeFileName);
+
+                await QRCode.toFile(qrCodePath, qrCodeData, {
+                    width: 300,
+                    errorCorrectionLevel: 'H'
+                });
+
+                const cloudinaryUploadResult = await cloudinary.uploader.upload(qrCodePath, {
+                    folder: 'qrcodes'
+                });
+
+                pengunjungData.barcode = cloudinaryUploadResult.secure_url;
+                fs.unlinkSync(qrCodePath);
+            }
+        }
+
+        console.log("Data pengunjung baru:", pengunjungData);
+
+        // Upload file baru jika ada
+        if (req.files && req.files.photo_ktp) {
+            const ktpUploadResult = await cloudinary.uploader.upload(req.files.photo_ktp[0].path, {
+                folder: 'photo_ktp'
+            });
+            pengunjungData.photo_ktp = ktpUploadResult.secure_url;
+        }
+
+        if (req.files && req.files.photo_pengunjung) {
+            const pengunjungUploadResult = await cloudinary.uploader.upload(req.files.photo_pengunjung[0].path, {
+                folder: 'photo_pengunjung'
+            });
+            pengunjungData.photo_pengunjung = pengunjungUploadResult.secure_url;
+        }
+
+        // Buat data pengunjung baru
+        const newPengunjung = await PengunjungModel.create(pengunjungData);
+
+        // Kirim email hanya untuk non-admin
+        if (userRole !== 'admin') {
+            await sendBarcode(email, pengunjungData.barcode);
+        }
+
+        // Copy barang titipan dari data existing jika ada
+        if (existingPengunjung.barang_titipan && existingPengunjung.barang_titipan.length > 0) {
+            console.log("Menyalin barang titipan dari data existing...");
+
+            for (const barang of existingPengunjung.barang_titipan) {
+                await BarangTitipanModel.create({
+                    pengunjung_id: newPengunjung.id,
+                    user_id: currentUser,
+                    wbp_id: barang.wbp_id,
+                    jenis_barang: barang.jenis_barang,
+                    jumlah: barang.jumlah,
+                    keterangan: barang.keterangan
+                });
+            }
+        }
+
+        return res.status(201).send({
+            message: "Kunjungan berhasil dibuat dari data existing",
+            data: {
+                ...newPengunjung.toJSON(),
+                warga_binaan: existingPengunjung.warga_binaan,
+                barang_titipan: existingPengunjung.barang_titipan
+            },
+        });
+
+    } catch (error) {
+        console.error("Error createFromExisting:", error.message);
 
         if (error instanceof multer.MulterError) {
             return res.status(400).send({ message: error.message });
@@ -1874,6 +2146,87 @@ const verifyCode = async(req, res, next) => {
     }
 };
 
+// Fungsi untuk mencari semua data pengunjung (tidak terbatas hari ini)
+const searchAllPengunjung = async(req, res, _next) => {
+    try {
+        const { search } = req.query;
+
+        console.log("🔍 searchAllPengunjung dipanggil dengan search:", search);
+
+        let whereCondition = {};
+
+        if (search && search.trim() !== '') {
+            whereCondition = {
+                [Op.or]: [{
+                        nama: {
+                            [Op.like]: `%${search}%`
+                        }
+                    },
+                    {
+                        nik: {
+                            [Op.like]: `%${search}%`
+                        }
+                    },
+                    {
+                        kode: {
+                            [Op.like]: `%${search}%`
+                        }
+                    },
+                    {
+                        hp: {
+                            [Op.like]: `%${search}%`
+                        }
+                    }
+                ]
+            };
+        } else {
+            // Jika tidak ada search parameter, kembalikan semua data
+            whereCondition = {};
+        }
+
+        console.log("📋 Kondisi pencarian:", JSON.stringify(whereCondition));
+
+        // Cari semua data pengunjung
+        const pengunjungs = await PengunjungModel.findAll({
+            where: whereCondition,
+            include: [{
+                    model: WbpModel,
+                    as: "warga_binaan",
+                },
+                {
+                    model: BarangTitipanModel,
+                    as: "barang_titipan",
+                }
+            ],
+            order: [
+                ['createdAt', 'DESC']
+            ],
+            limit: 50
+        });
+
+        console.log("📊 Jumlah data ditemukan:", pengunjungs.length);
+
+        if (pengunjungs.length === 0) {
+            console.log("❌ Tidak ada data ditemukan dengan kondisi:", whereCondition);
+            return res.status(404).send({
+                message: "Pengunjung tidak ditemukan",
+                data: null
+            });
+        }
+
+        return res.send({
+            message: "Success",
+            data: pengunjungs,
+            total: pengunjungs.length
+        });
+
+    } catch (error) {
+        console.error("❌ Error searchAllPengunjung:", error.message);
+        console.error("Stack trace:", error.stack);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
+
 module.exports = {
     index,
     getPengunjung,
@@ -1890,5 +2243,7 @@ module.exports = {
     updateAntrian,
     getLastAntrian,
     listStruk,
-    cetakLabelTitipan
+    cetakLabelTitipan,
+    createFromExisting,
+    searchAllPengunjung,
 };

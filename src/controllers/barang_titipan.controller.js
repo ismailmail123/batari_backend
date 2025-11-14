@@ -165,7 +165,9 @@ const create = async(req, res, _next) => {
 const update = async(req, res, _next) => {
     try {
         const { id } = req.params;
-        const { pengunjung_id, wbp_id, jenis_barang, jumlah, keterangan } = req.body;
+        const { jenis_barang, jumlah, keterangan } = req.body;
+
+        console.log("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrequest body:", req.body);
 
         // Cari barang titipan berdasarkan ID dan user_id
         const barangTitipan = await BarangTitipanModel.findOne({
@@ -183,7 +185,7 @@ const update = async(req, res, _next) => {
         }
 
         // Validasi data yang akan diupdate
-        if (!pengunjung_id || !jenis_barang || !jumlah) {
+        if (!jenis_barang || !jumlah) {
             return res.status(400).send({
                 message: "Data tidak lengkap. Pastikan pengunjung_id, jenis_barang, dan jumlah diisi.",
             });
@@ -191,8 +193,8 @@ const update = async(req, res, _next) => {
 
         // Update data
         await BarangTitipanModel.update({
-            pengunjung_id,
-            wbp_id: wbp_id || null,
+            // pengunjung_id,
+            // wbp_id: wbp_id || null,
             jenis_barang,
             jumlah,
             keterangan: keterangan || null,

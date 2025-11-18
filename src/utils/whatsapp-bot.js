@@ -26,57 +26,57 @@ let isConnected = false;
 
 // [SEMUA FUNGSI HELPER DAN WhatsAppSession CLASS TETAP SAMA SEPERTI SEBELUMNYA]
 // FUNGSI HELPER (tetap sama seperti sebelumnya)
-// const isWithinOperatingHours = () => {
-//     try {
-//         const timeZone = 'Asia/Makassar';
-//         const now = new Date();
-//         const zonedDate = toZonedTime(now, timeZone);
+const isWithinOperatingHours = () => {
+    try {
+        const timeZone = 'Asia/Makassar';
+        const now = new Date();
+        const zonedDate = toZonedTime(now, timeZone);
 
-//         const day = zonedDate.getDay();
-//         const hour = parseInt(format(zonedDate, 'HH', { timeZone: timeZone }), 10);
-//         const minute = parseInt(format(zonedDate, 'mm', { timeZone: timeZone }), 10);
-//         const currentTime = hour * 60 + minute;
+        const day = zonedDate.getDay();
+        const hour = parseInt(format(zonedDate, 'HH', { timeZone: timeZone }), 10);
+        const minute = parseInt(format(zonedDate, 'mm', { timeZone: timeZone }), 10);
+        const currentTime = hour * 60 + minute;
 
-//         let maxTime;
-//         if (day >= 1 && day <= 4) {
-//             maxTime = 14 * 60 + 30;
-//         } else if (day === 5) {
-//             maxTime = 11 * 60 + 30;
-//         } else if (day === 6) {
-//             maxTime = 10 * 60 + 30;
-//         } else {
-//             return {
-//                 isValid: false,
-//                 message: '❌ *PENDAFTARAN DITUTUP*\n\nHari Minggu tidak ada layanan pendaftaran kunjungan.\n\nSilakan kembali pada hari Senin - Sabtu.'
-//             };
-//         }
+        let maxTime;
+        if (day >= 1 && day <= 4) {
+            maxTime = 14 * 60 + 30;
+        } else if (day === 5) {
+            maxTime = 11 * 60 + 30;
+        } else if (day === 6) {
+            maxTime = 10 * 60 + 30;
+        } else {
+            return {
+                isValid: false,
+                message: '❌ *PENDAFTARAN DITUTUP*\n\nHari Minggu tidak ada layanan pendaftaran kunjungan.\n\nSilakan kembali pada hari Senin - Sabtu.'
+            };
+        }
 
-//         if (currentTime > maxTime) {
-//             const timeString = `${Math.floor(maxTime/60).toString().padStart(2, '0')}:${(maxTime%60).toString().padStart(2, '0')}`;
-//             const dayNames = {
-//                 1: 'Senin-Kamis',
-//                 2: 'Senin-Kamis',
-//                 3: 'Senin-Kamis',
-//                 4: 'Senin-Kamis',
-//                 5: 'Jumat',
-//                 6: 'Sabtu'
-//             };
+        if (currentTime > maxTime) {
+            const timeString = `${Math.floor(maxTime/60).toString().padStart(2, '0')}:${(maxTime%60).toString().padStart(2, '0')}`;
+            const dayNames = {
+                1: 'Senin-Kamis',
+                2: 'Senin-Kamis',
+                3: 'Senin-Kamis',
+                4: 'Senin-Kamis',
+                5: 'Jumat',
+                6: 'Sabtu'
+            };
 
-//             return {
-//                 isValid: false,
-//                 message: `❌ *PENDAFTARAN DITUTUP*\n\nPendaftaran kunjungan hari ini sudah ditutup.\n\n🕐 *Batas Pendaftaran:*\n${dayNames[day]}: ${timeString}\n\nSilakan kembali besok pada jam yang ditentukan.`
-//             };
-//         }
+            return {
+                isValid: false,
+                message: `❌ *PENDAFTARAN DITUTUP*\n\nPendaftaran kunjungan hari ini sudah ditutup.\n\n🕐 *Batas Pendaftaran:*\n${dayNames[day]}: ${timeString}\n\nSilakan kembali besok pada jam yang ditentukan.`
+            };
+        }
 
-//         return { isValid: true };
-//     } catch (error) {
-//         console.error('Error validasi waktu:', error);
-//         return {
-//             isValid: false,
-//             message: '❌ Error saat validasi waktu. Silakan coba lagi.'
-//         };
-//     }
-// };
+        return { isValid: true };
+    } catch (error) {
+        console.error('Error validasi waktu:', error);
+        return {
+            isValid: false,
+            message: '❌ Error saat validasi waktu. Silakan coba lagi.'
+        };
+    }
+};
 
 const generateVerificationCode = () => crypto.randomBytes(3).toString("hex").toUpperCase();
 
@@ -260,10 +260,10 @@ async function saveKunjunganToDB(data, existingPengunjung = null) {
     const transaction = await sequelize.transaction();
 
     try {
-        // const timeValidation = isWithinOperatingHours();
-        // if (!timeValidation.isValid) {
-        //     throw new Error(timeValidation.message);
-        // }
+        const timeValidation = isWithinOperatingHours();
+        if (!timeValidation.isValid) {
+            throw new Error(timeValidation.message);
+        }
 
         let kodePengunjung;
         let barcodeUrl = null;
@@ -1032,11 +1032,11 @@ Ketik "kunjungan" untuk memulai!`;
         // Mulai kunjungan
         if (text === 'kunjungan') {
             // Validasi waktu
-            // const timeValidation = isWithinOperatingHours();
-            // if (!timeValidation.isValid) {
-            //     await sendMessage(phone, timeValidation.message);
-            //     return;
-            // }
+            const timeValidation = isWithinOperatingHours();
+            if (!timeValidation.isValid) {
+                await sendMessage(phone, timeValidation.message);
+                return;
+            }
 
             let session = userSessions.get(phone);
             if (session && session.step !== 'IDLE') {
@@ -1210,5 +1210,5 @@ module.exports = {
     generateQRCode,
     generateAntrian,
     validateDailyKunjungan,
-    // isWithinOperatingHours
+    isWithinOperatingHours
 };

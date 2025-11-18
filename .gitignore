@@ -10,3 +10,4 @@ test-qr.png
 *.log
 node_modules/
 .DS_Store
+baileys_auth_info/

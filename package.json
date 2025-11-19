@@ -39,6 +39,7 @@
         "react-qr-reader": "^3.0.0-beta-1",
         "sequelize": "^6.37.6",
         "usb": "^2.16.0",
+        "whatsapp-web.js": "^1.34.2",
         "xlsx": "^0.18.5"
     },
     "devDependencies": {

@@ -4,7 +4,7 @@ node_modules
 # Session dan cache WhatsApp
 .wwebjs_cache/
 whatsapp-sessions/
-test-qr.png
+
 
 # File log dan lainnya
 *.log

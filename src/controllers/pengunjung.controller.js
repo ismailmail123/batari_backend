@@ -2146,16 +2146,28 @@ const verifyCode = async(req, res, next) => {
     }
 };
 
-// Fungsi untuk mencari semua data pengunjung (tidak terbatas hari ini)
 const searchAllPengunjung = async(req, res, _next) => {
     try {
         const { search } = req.query;
 
         console.log("🔍 searchAllPengunjung dipanggil dengan search:", search);
 
+        // Siapkan kondisi pencarian
         let whereCondition = {};
+        let includeConditions = [{
+                model: WbpModel,
+                as: "warga_binaan",
+                required: false, // tetap false agar tidak strict
+            },
+            {
+                model: BarangTitipanModel,
+                as: "barang_titipan",
+                required: false,
+            }
+        ];
 
         if (search && search.trim() !== '') {
+            // Hanya buat kondisi pencarian untuk pengunjung
             whereCondition = {
                 [Op.or]: [{
                         nama: {
@@ -2179,46 +2191,112 @@ const searchAllPengunjung = async(req, res, _next) => {
                     }
                 ]
             };
-        } else {
-            // Jika tidak ada search parameter, kembalikan semua data
-            whereCondition = {};
-        }
 
-        console.log("📋 Kondisi pencarian:", JSON.stringify(whereCondition));
+            // Jangan ubah includeConditions[0] di sini
+            // Biarkan seperti di atas
 
-        // Cari semua data pengunjung
-        const pengunjungs = await PengunjungModel.findAll({
-            where: whereCondition,
-            include: [{
+            console.log("📋 Kondisi pencarian pengunjung:", JSON.stringify(whereCondition));
+
+            // Cari semua data pengunjung berdasarkan kondisi pencarian di tabel pengunjung
+            const pengunjungs = await PengunjungModel.findAll({
+                where: whereCondition,
+                include: includeConditions,
+                order: [
+                    ['createdAt', 'DESC']
+                ],
+                limit: 50
+            });
+
+            console.log("📊 Jumlah data ditemukan dari pencarian pengunjung:", pengunjungs.length);
+
+            // Juga cari berdasarkan nama warga_binaan secara terpisah
+            const pengunjungsByWbp = await PengunjungModel.findAll({
+                include: [{
                     model: WbpModel,
                     as: "warga_binaan",
-                },
-                {
+                    required: false,
+                    where: {
+                        nama: {
+                            [Op.like]: `%${search}%`
+                        }
+                    }
+                }, {
                     model: BarangTitipanModel,
                     as: "barang_titipan",
+                    required: false,
+                }],
+                order: [
+                    ['createdAt', 'DESC']
+                ],
+                limit: 50
+            });
+
+            console.log("📊 Jumlah data ditemukan dari pencarian warga_binaan:", pengunjungsByWbp.length);
+
+            // Gabungkan hasil dari kedua pencarian
+            const allPengunjungs = [...pengunjungs, ...pengunjungsByWbp];
+
+            // Hapus duplikat berdasarkan id pengunjung
+            const uniquePengunjungs = [];
+            const seenIds = new Set();
+
+            for (const pengunjung of allPengunjungs) {
+                if (!seenIds.has(pengunjung.id)) {
+                    seenIds.add(pengunjung.id);
+                    uniquePengunjungs.push(pengunjung);
                 }
-            ],
-            order: [
-                ['createdAt', 'DESC']
-            ],
-            limit: 50
-        });
+            }
 
-        console.log("📊 Jumlah data ditemukan:", pengunjungs.length);
+            // Urutkan kembali berdasarkan createdAt
+            uniquePengunjungs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-        if (pengunjungs.length === 0) {
-            console.log("❌ Tidak ada data ditemukan dengan kondisi:", whereCondition);
-            return res.status(404).send({
-                message: "Pengunjung tidak ditemukan",
-                data: null
+            // Batasi hasil
+            const finalPengunjungs = uniquePengunjungs.slice(0, 50);
+
+            console.log("📊 Jumlah data akhir setelah digabungkan:", finalPengunjungs.length);
+
+            if (finalPengunjungs.length === 0) {
+                console.log("❌ Tidak ada data ditemukan dengan search:", search);
+                return res.status(404).send({
+                    message: "Pengunjung tidak ditemukan",
+                    data: []
+                });
+            }
+
+            return res.send({
+                message: "Success",
+                data: finalPengunjungs,
+                total: finalPengunjungs.length
+            });
+
+        } else {
+            // Jika tidak ada search parameter, kembalikan semua data
+            console.log("📋 Tidak ada parameter search, mengambil semua data");
+
+            const pengunjungs = await PengunjungModel.findAll({
+                where: whereCondition,
+                include: includeConditions,
+                order: [
+                    ['createdAt', 'DESC']
+                ],
+                limit: 50
+            });
+
+            console.log("📊 Jumlah data ditemukan:", pengunjungs.length);
+
+            if (pengunjungs.length === 0) {
+                return res.status(404).send({
+                    message: "Tidak ada data pengunjung",
+                    data: []
+                });
+            }
+
+            return res.send({
+                message: "Success",
+                data: pengunjungs,
+                total: pengunjungs.length
             });
         }
-
-        return res.send({
-            message: "Success",
-            data: pengunjungs,
-            total: pengunjungs.length
-        });
 
     } catch (error) {
         console.error("❌ Error searchAllPengunjung:", error.message);
@@ -2226,6 +2304,9 @@ const searchAllPengunjung = async(req, res, _next) => {
         return res.status(500).send({ message: "Internal Server Error" });
     }
 };
+
+
+
 
 module.exports = {
     index,

@@ -2157,7 +2157,7 @@ const searchAllPengunjung = async(req, res, _next) => {
         let includeConditions = [{
                 model: WbpModel,
                 as: "warga_binaan",
-                required: false, // tetap false agar tidak strict
+                required: false,
             },
             {
                 model: BarangTitipanModel,
@@ -2192,9 +2192,6 @@ const searchAllPengunjung = async(req, res, _next) => {
                 ]
             };
 
-            // Jangan ubah includeConditions[0] di sini
-            // Biarkan seperti di atas
-
             console.log("📋 Kondisi pencarian pengunjung:", JSON.stringify(whereCondition));
 
             // Cari semua data pengunjung berdasarkan kondisi pencarian di tabel pengunjung
@@ -2209,12 +2206,12 @@ const searchAllPengunjung = async(req, res, _next) => {
 
             console.log("📊 Jumlah data ditemukan dari pencarian pengunjung:", pengunjungs.length);
 
-            // Juga cari berdasarkan nama warga_binaan secara terpisah
+            // Juga cari berdasarkan nama warga_binaan - gunakan required: true atau required: false dengan pendekatan berbeda
             const pengunjungsByWbp = await PengunjungModel.findAll({
                 include: [{
                     model: WbpModel,
                     as: "warga_binaan",
-                    required: false,
+                    required: true, // Ganti menjadi true untuk INNER JOIN
                     where: {
                         nama: {
                             [Op.like]: `%${search}%`
@@ -2274,7 +2271,6 @@ const searchAllPengunjung = async(req, res, _next) => {
             console.log("📋 Tidak ada parameter search, mengambil semua data");
 
             const pengunjungs = await PengunjungModel.findAll({
-                where: whereCondition,
                 include: includeConditions,
                 order: [
                     ['createdAt', 'DESC']

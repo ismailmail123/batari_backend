@@ -47,9 +47,40 @@ const sendBarcode = async(email, qrCodeUrl, nama) => {
  * @param {import("express").NextFunction} _next
  */
 
+// const index = async(req, res, _next) => {
+//     try {
+//         let pengunjungs = await PengunjungModel.findAll({
+//             include: [{
+//                     model: UserModel,
+//                     as: "user",
+//                 },
+//                 {
+//                     model: WbpModel,
+//                     as: "warga_binaan",
+//                 },
+//                 {
+//                     model: BarangTitipanModel,
+//                     as: "barang_titipan",
+//                 }
+//             ],
+//         });
+
+//         return res.send({
+//             message: "Success",
+//             data: pengunjungs,
+//         });
+//     } catch (error) {
+//         console.log("Error:", error);
+//         return res.status(500).send({ message: "Internal Server Error" });
+//     }
+// };
+// PERBAIKI function index - untuk admin/p2u dengan pagination
 const index = async(req, res, _next) => {
     try {
-        let pengunjungs = await PengunjungModel.findAll({
+        const { page = 1, limit = 10 } = req.query; // Ambil parameter page & limit
+        const offset = (page - 1) * limit;
+
+        const { count, rows } = await PengunjungModel.findAndCountAll({
             include: [{
                     model: UserModel,
                     as: "user",
@@ -63,17 +94,67 @@ const index = async(req, res, _next) => {
                     as: "barang_titipan",
                 }
             ],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [
+                    ['createdAt', 'DESC']
+                ] // Urutkan dari yang terbaru
         });
 
         return res.send({
             message: "Success",
-            data: pengunjungs,
+            data: rows,
+            current_page: parseInt(page),
+            total_page: Math.ceil(count / limit),
+            total_data: count
         });
     } catch (error) {
         console.log("Error:", error);
         return res.status(500).send({ message: "Internal Server Error" });
     }
 };
+
+// PERBAIKI function indexUser - untuk user dengan pagination
+const indexUser = async(req, res, _next) => {
+    try {
+        const { page = 1, limit = 10 } = req.query; // Ambil parameter page & limit
+        const offset = (page - 1) * limit;
+
+        const { count, rows } = await PengunjungModel.findAndCountAll({
+            where: { user_id: req.user.id },
+            include: [{
+                    model: UserModel,
+                    as: "user",
+                },
+                {
+                    model: WbpModel,
+                    as: "warga_binaan",
+                },
+                {
+                    model: BarangTitipanModel,
+                    as: "barang_titipan",
+                }
+            ],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [
+                    ['createdAt', 'DESC']
+                ] // Urutkan dari yang terbaru
+        });
+
+        return res.send({
+            message: "Success",
+            data: rows,
+            current_page: parseInt(page),
+            total_page: Math.ceil(count / limit),
+            total_data: count
+        });
+    } catch (error) {
+        console.log("Error:", error);
+        return res.status(500).send({ message: "Internal Server Error" });
+    }
+};
+
 
 const getPengunjung = async(req, res, _next) => {
     try {
@@ -120,34 +201,34 @@ const getPengunjung = async(req, res, _next) => {
  * @param {import("express").NextFunction} _next
  */
 
-const indexUser = async(req, res, _next) => {
-    try {
-        let pengunjungs = await PengunjungModel.findAll({
-            where: { user_id: req.user.id },
-            include: [{
-                    model: UserModel,
-                    as: "user",
-                },
-                {
-                    model: WbpModel,
-                    as: "warga_binaan",
-                },
-                {
-                    model: BarangTitipanModel,
-                    as: "barang_titipan",
-                }
-            ],
-        });
+// const indexUser = async(req, res, _next) => {
+//     try {
+//         let pengunjungs = await PengunjungModel.findAll({
+//             where: { user_id: req.user.id },
+//             include: [{
+//                     model: UserModel,
+//                     as: "user",
+//                 },
+//                 {
+//                     model: WbpModel,
+//                     as: "warga_binaan",
+//                 },
+//                 {
+//                     model: BarangTitipanModel,
+//                     as: "barang_titipan",
+//                 }
+//             ],
+//         });
 
-        return res.send({
-            message: "Success",
-            data: pengunjungs,
-        });
-    } catch (error) {
-        console.log("Error:", error);
-        return res.status(500).send({ message: "Internal Server Error" });
-    }
-};
+//         return res.send({
+//             message: "Success",
+//             data: pengunjungs,
+//         });
+//     } catch (error) {
+//         console.log("Error:", error);
+//         return res.status(500).send({ message: "Internal Server Error" });
+//     }
+// };
 
 /**
  * Mengambil nomor antrian terakhir
